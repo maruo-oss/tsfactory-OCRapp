@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-OCR 発注管理システム - 取扱説明書</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary: #0A2540;
+      --accent: #635BFF;
+      --accent-light: #7A73FF;
+      --success: #00D4AA;
+      --warning: #FF6B35;
+      --bg-dark: #0A2540;
+      --bg-light: #F6F9FC;
+      --text-primary: #1A1F36;
+      --text-secondary: #425466;
+      --text-muted: #697386;
+      --border: #E3E8EE;
+      --shadow: rgba(50, 50, 93, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'IBM Plex Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.7;
+      color: var(--text-primary);
+      background: var(--bg-light);
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    code, pre {
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+
+    /* Hero Section */
+    .hero {
+      background: linear-gradient(135deg, var(--bg-dark) 0%, #1a3a52 100%);
+      color: white;
+      padding: 80px 40px 60px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(99, 91, 255, 0.15) 0%, transparent 70%);
+      animation: pulse 8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .hero-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .version-badge {
+      display: inline-block;
+      background: rgba(0, 212, 170, 0.2);
+      color: var(--success);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(0, 212, 170, 0.3);
+    }
+
+    h1 {
+      font-size: 52px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      letter-spacing: -1px;
+      line-height: 1.1;
+    }
+
+    .hero p {
+      font-size: 20px;
+      color: rgba(255, 255, 255, 0.8);
+      max-width: 700px;
+      margin-bottom: 32px;
+      font-weight: 300;
+    }
+
+    .tech-stack {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 32px;
+    }
+
+    .tech-badge {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 60px 40px;
+    }
+
+    /* Navigation */
+    .nav {
+      position: sticky;
+      top: 0;
+      background: white;
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .nav-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 40px;
+      display: flex;
+      gap: 32px;
+      overflow-x: auto;
+    }
+
+    .nav a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      padding: 20px 4px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      font-weight: 500;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .nav a:hover {
+      color: var(--accent);
+      border-bottom-color: var(--accent-light);
+    }
+
+    /* Section Styles */
+    section {
+      margin-bottom: 80px;
+      opacity: 0;
+      animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    section:nth-child(1) { animation-delay: 0.1s; }
+    section:nth-child(2) { animation-delay: 0.2s; }
+    section:nth-child(3) { animation-delay: 0.3s; }
+    section:nth-child(4) { animation-delay: 0.4s; }
+    section:nth-child(5) { animation-delay: 0.5s; }
+
+    h2 {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text-primary);
+      letter-spacing: -0.5px;
+      position: relative;
+      display: inline-block;
+    }
+
+    h2::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 0;
+      width: 60px;
+      height: 4px;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 100%);
+      border-radius: 2px;
+    }
+
+    h3 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-top: 40px;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+
+    h4 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      color: var(--text-secondary);
+    }
+
+    p {
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      font-size: 16px;
+    }
+
+    .section-intro {
+      font-size: 18px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      margin-top: 24px;
+    }
+
+    /* Feature Grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-top: 32px;
+    }
+
+    .feature-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-light) 100%);
+      transform: scaleY(0);
+      transition: transform 0.3s;
+    }
+
+    .feature-card:hover {
+      box-shadow: 0 12px 24px var(--shadow);
+      transform: translateY(-4px);
+    }
+
+    .feature-card:hover::before {
+      transform: scaleY(1);
+    }
+
+    .feature-icon {
+      font-size: 32px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .feature-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+
+    .feature-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* Steps */
+    .steps {
+      counter-reset: step;
+      margin-top: 32px;
+    }
+
+    .step {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 20px;
+      position: relative;
+      padding-left: 100px;
+    }
+
+    .step::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      left: 32px;
+      top: 32px;
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 20px;
+    }
+
+    .step h4 {
+      margin-top: 0;
+      font-size: 20px;
+    }
+
+    /* Code Blocks */
+    pre {
+      background: var(--bg-dark);
+      color: #E4E7EB;
+      padding: 24px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 20px 0;
+      border: 1px solid rgba(99, 91, 255, 0.2);
+      position: relative;
+    }
+
+    pre::before {
+      content: attr(data-lang);
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      font-size: 11px;
+      color: var(--accent-light);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    code {
+      background: rgba(99, 91, 255, 0.1);
+      color: var(--accent);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+
+    pre code {
+      background: none;
+      color: inherit;
+      padding: 0;
+    }
+
+    /* Tables */
+    .table-wrapper {
+      overflow-x: auto;
+      margin: 24px 0;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    thead {
+      background: var(--bg-light);
+    }
+
+    th {
+      text-align: left;
+      padding: 16px 20px;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    td {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: rgba(99, 91, 255, 0.02);
+    }
+
+    /* Alert Boxes */
+    .alert {
+      padding: 20px 24px;
+      border-radius: 8px;
+      margin: 24px 0;
+      border-left: 4px solid;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .alert-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .alert-info {
+      background: rgba(99, 91, 255, 0.08);
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+
+    .alert-warning {
+      background: rgba(255, 107, 53, 0.08);
+      border-color: var(--warning);
+      color: var(--text-primary);
+    }
+
+    .alert-success {
+      background: rgba(0, 212, 170, 0.08);
+      border-color: var(--success);
+      color: var(--text-primary);
+    }
+
+    /* Lists */
+    ul, ol {
+      margin: 16px 0;
+      padding-left: 28px;
+    }
+
+    li {
+      margin-bottom: 12px;
+      color: var(--text-secondary);
+    }
+
+    li strong {
+      color: var(--text-primary);
+    }
+
+    /* Folder Structure */
+    .folder-structure {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      margin: 24px 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .folder-structure div {
+      margin-left: 20px;
+    }
+
+    .folder-structure .root {
+      margin-left: 0;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* Screenshot Placeholder */
+    .screenshot {
+      width: 100%;
+      height: 400px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 12px;
+      margin: 32px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+      font-weight: 500;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .screenshot::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+      animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+      100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+    }
+
+    /* Footer */
+    footer {
+      background: var(--bg-dark);
+      color: rgba(255, 255, 255, 0.7);
+      padding: 48px 40px;
+      text-align: center;
+      margin-top: 80px;
+    }
+
+    footer a {
+      color: var(--accent-light);
+      text-decoration: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero {
+        padding: 60px 24px 40px;
+      }
+
+      h1 {
+        font-size: 36px;
+      }
+
+      .hero p {
+        font-size: 18px;
+      }
+
+      .container {
+        padding: 40px 24px;
+      }
+
+      h2 {
+        font-size: 28px;
+      }
+
+      .step {
+        padding-left: 24px;
+        padding-top: 80px;
+      }
+
+      .step::before {
+        left: 50%;
+        transform: translateX(-50%);
+        top: 24px;
+      }
+
+      .nav-content {
+        padding: 0 24px;
+      }
+
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Smooth scrolling */
+    html {
+      scroll-behavior: smooth;
+    }
+
+    /* Selection */
+    ::selection {
+      background: var(--accent);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero Section -->
+  <div class="hero">
+    <div class="hero-content">
+      <span class="version-badge">VERSION 2.0</span>
+      <h1>AI-OCR 発注管理システム<br>取扱説明書</h1>
+      <p>Google Apps Script と Gemini AI を使用した、PDF発注書の自動OCR処理・管理システムの完全ガイド</p>
+      <div class="tech-stack">
+        <span class="tech-badge">🤖 Gemini 2.5 Pro</span>
+        <span class="tech-badge">📊 Google Apps Script</span>
+        <span class="tech-badge">📁 Google Drive</span>
+        <span class="tech-badge">📈 Spreadsheet</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="nav-content">
+      <a href="#overview">概要</a>
+      <a href="#features">機能</a>
+      <a href="#setup">セットアップ</a>
+      <a href="#usage">使い方</a>
+      <a href="#data">データ構造</a>
+      <a href="#troubleshooting">トラブルシューティング</a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="container">
+
+    <!-- Overview Section -->
+    <section id="overview">
+      <h2>システム概要</h2>
+      <p class="section-intro">PDF形式の発注書を自動的に読み取り、Google Spreadsheetに発注データを保存する革新的なシステムです。</p>
+
+      <div class="alert alert-info">
+        <span class="alert-icon">💡</span>
+        <div>
+          <strong>AI駆動の自動処理</strong><br>
+          Gemini 2.5 Proを活用して、発注書の内容を高精度で構造化データとして抽出。手動入力の時間を大幅に削減します。
+        </div>
+      </div>
+
+      <h3>システムフロー</h3>
+      <pre data-lang="flow">Google Drive (PDF保管)
+     ↓
+Google Apps Script (OCR処理)
+     ↓  Gemini API
+Google Spreadsheet (データ保存)
+     ↓
+Web UI (閲覧・編集)</pre>
+
+      <p>このシステムは、拠点別に発注書PDFを管理し、AI技術で自動的にデータ化。Webインターフェースから簡単に確認・編集できます。</p>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features">
+      <h2>主な機能</h2>
+      <p class="section-intro">V2.0では、より高度な管理機能とユーザビリティの向上を実現しています。</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <span class="feature-icon">🤖</span>
+          <div class="feature-title">AI-OCR自動処理</div>
+          <div class="feature-desc">Gemini APIを使ってPDF発注書から情報を自動抽出。発注日、メーカー、商品明細などを高精度で読み取ります。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🔢</span>
+          <div class="feature-title">発注番号抽出</div>
+          <div class="feature-desc">発注書から発注No（発注番号）を自動抽出・表示。発注管理の追跡性が向上します。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🏢</span>
+          <div class="feature-title">拠点別管理</div>
+          <div class="feature-desc">Google Driveのフォルダ構造で複数拠点を管理。東京、大阪などの拠点ごとにデータを整理できます。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🚚</span>
+          <div class="feature-title">納品先対応</div>
+          <div class="feature-desc">発注書から納品先情報（株式会社名など）を自動抽出・管理します。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🖥️</span>
+          <div class="feature-title">Webインターフェース</div>
+          <div class="feature-desc">ブラウザ上で発注内容の閲覧・編集が可能。直感的なUIで操作性に優れています。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">📄</span>
+          <div class="feature-title">PDFプレビュー</div>
+          <div class="feature-desc">原本PDFをリアルタイム表示。データと原本を同時に確認できます。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">📊</span>
+          <div class="feature-title">ステータス管理</div>
+          <div class="feature-desc">6段階のステータス（未処理/処理中/確認中/完了/保留/要確認）で進捗管理が可能です。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">📦</span>
+          <div class="feature-title">アーカイブ機能</div>
+          <div class="feature-desc">完了した発注書をアプリ内で非表示化。データはスプレッドシートに安全に保持されます。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🔄</span>
+          <div class="feature-title">商品明細ソート</div>
+          <div class="feature-desc">PDFの元の順序を保持して表示。発注書の順番通りに商品が並びます。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">📥</span>
+          <div class="feature-title">Excel出力</div>
+          <div class="feature-desc">選択した発注書をまとめてExcel形式でエクスポート。出力後は自動アーカイブされます。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">✏️</span>
+          <div class="feature-title">データ編集</div>
+          <div class="feature-desc">発注日、メーカー、商品情報、ファイル名、備考などを手動で修正可能です。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">📝</span>
+          <div class="feature-title">備考機能</div>
+          <div class="feature-desc">各発注書に備考を追加可能。重要な情報や注意事項を記録できます。</div>
+        </div>
+      </div>
+
+      <div class="alert alert-success">
+        <span class="alert-icon">✨</span>
+        <div>
+          <strong>V2.0の新機能</strong><br>
+          発注番号抽出、アーカイブ機能、備考、商品明細ソート、ファイル名編集、自動アーカイブなど、多数の機能を追加。より実用的なシステムに進化しました。
+        </div>
+      </div>
+    </section>
+
+    <!-- Setup Section -->
+    <section id="setup">
+      <h2>セットアップ</h2>
+      <p class="section-intro">システムを稼働させるために必要な設定手順を説明します。</p>
+
+      <h3>必要なもの</h3>
+      <ul>
+        <li><strong>Googleアカウント</strong> - Google Apps Scriptを実行するために必要</li>
+        <li><strong>Gemini API キー</strong> - <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>で取得</li>
+        <li><strong>Google Driveフォルダ × 2</strong> - 入力用と処理済み用</li>
+        <li><strong>Google Spreadsheet</strong> - データ保存用</li>
+      </ul>
+
+      <div class="steps">
+        <div class="step">
+          <h4>Google Apps Script プロジェクトの作成</h4>
+          <ol>
+            <li><a href="https://script.google.com/" target="_blank">Google Apps Script</a> にアクセス</li>
+            <li>「新規プロジェクト」をクリック</li>
+            <li>以下のファイルを作成：
+              <ul>
+                <li><code>Code.gs</code> - メインスクリプト</li>
+                <li><code>index.html</code> - UI HTML</li>
+                <li><code>appsscript.json</code> - プロジェクト設定</li>
+              </ul>
+            </li>
+            <li>各ファイルにコードを貼り付け</li>
+          </ol>
+        </div>
+
+        <div class="step">
+          <h4>スクリプトプロパティの設定</h4>
+          <p>スクリプトエディタで「プロジェクトの設定」→「スクリプト プロパティ」から以下を設定：</p>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>プロパティ名</th>
+                  <th>説明</th>
+                  <th>例</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>GEMINI_API_KEY</code></td>
+                  <td>Gemini APIキー</td>
+                  <td>AIza...</td>
+                </tr>
+                <tr>
+                  <td><code>ROOT_IN_FOLDER_ID</code></td>
+                  <td>処理対象PDFを配置するフォルダID</td>
+                  <td>1Abc...</td>
+                </tr>
+                <tr>
+                  <td><code>ROOT_PROCESSED_FOLDER_ID</code></td>
+                  <td>処理済みPDFの移動先フォルダID</td>
+                  <td>1Def...</td>
+                </tr>
+                <tr>
+                  <td><code>SPREADSHEET_ID</code></td>
+                  <td>データ保存先スプレッドシートID</td>
+                  <td>1Ghi...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="alert alert-info">
+            <span class="alert-icon">💡</span>
+            <div>
+              <strong>フォルダIDの取得方法</strong><br>
+              Google DriveでフォルダのURLを開き、<code>https://drive.google.com/drive/folders/<strong>ここがフォルダID</strong></code> の部分をコピーします。
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <h4>フォルダ構造の作成</h4>
+          <p>Google Driveに以下の構造でフォルダを作成します：</p>
+
+          <div class="folder-structure">
+            <div class="root">📁 ROOT_IN_FOLDER (処理対象)</div>
+            <div>
+              <div>├─ 📁 東京</div>
+              <div>│   ├─ 📄 発注書_001.pdf</div>
+              <div>│   └─ 📄 発注書_002.pdf</div>
+              <div>└─ 📁 大阪</div>
+              <div>    └─ 📄 発注書_003.pdf</div>
+            </div>
+            <br>
+            <div class="root">📁 ROOT_PROCESSED_FOLDER (処理済み)</div>
+            <div>
+              <div>├─ 📁 東京 (自動作成)</div>
+              <div>└─ 📁 大阪 (自動作成)</div>
+            </div>
+          </div>
+
+          <div class="alert alert-warning">
+            <span class="alert-icon">⚠️</span>
+            <div>
+              <strong>重要</strong><br>
+              処理対象PDFは必ず拠点名フォルダの中に配置してください。ルート直下に置いても処理されません。
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <h4>プロンプトシートの作成</h4>
+          <p>スプレッドシートに「プロンプト」という名前のシートを作成し、A1セルに以下のプロンプトを記述：</p>
+
+          <pre data-lang="text">以下のPDF発注書から以下の情報をJSON形式で抽出してください：
+- order_number: 発注番号/発注No/注文番号（見つからない場合は空文字列）
+- order_date: 発注日（YYYY-MM-DD形式）
+- maker_name: メーカー名
+- shop_name: 店舗名
+- delivery_destination: 納品先（株式会社/有限会社など）
+- items: 商品明細の配列
+  - product_code: 品番
+  - product_name: 商品名
+  - quantity: 数量
+  - unit_price: 単価</pre>
+
+          <p>このプロンプトはカスタマイズ可能です。必要に応じて抽出項目を追加・変更してください。</p>
+        </div>
+
+        <div class="step">
+          <h4>Webアプリとしてデプロイ</h4>
+          <ol>
+            <li>スクリプトエディタで「デプロイ」→「新しいデプロイ」をクリック</li>
+            <li>種類を「Webアプリ」に設定</li>
+            <li>実行ユーザー: 「自分」を選択</li>
+            <li>アクセスできるユーザー: 組織内（または必要に応じて設定）</li>
+            <li>「デプロイ」をクリックしてURLを取得</li>
+            <li>取得したURLをブックマークに保存</li>
+          </ol>
+
+          <div class="alert alert-success">
+            <span class="alert-icon">✅</span>
+            <div>
+              <strong>セットアップ完了！</strong><br>
+              デプロイURLにアクセスすると、AI-OCR発注管理システムが起動します。
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Usage Section -->
+    <section id="usage">
+      <h2>使い方</h2>
+      <p class="section-intro">システムの基本的な操作方法を解説します。</p>
+
+      <h3>1. 発注書の自動処理</h3>
+      <div class="steps">
+        <div class="step">
+          <h4>PDFファイルの配置</h4>
+          <p>Google Driveの <code>ROOT_IN_FOLDER</code> 配下に拠点名フォルダ（例：東京、大阪）を作成し、各拠点フォルダにPDF発注書を配置します。</p>
+        </div>
+
+        <div class="step">
+          <h4>自動取込の実行</h4>
+          <p>Webアプリのヘッダーにある「<strong>自動取込実行</strong>」ボタンをクリックします。システムがGoogle Driveをスキャンし、新しいPDFを自動処理します。</p>
+
+          <div class="alert alert-info">
+            <span class="alert-icon">⏱️</span>
+            <div>
+              <strong>処理時間について</strong><br>
+              PDFの枚数やページ数によって処理時間が変わります。通常、1枚のPDFで10〜30秒程度かかります。
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <h4>処理結果の確認</h4>
+          <p>処理が完了すると、左側の発注書一覧に新しいデータが表示されます。処理済みのPDFは自動的に <code>ROOT_PROCESSED_FOLDER</code> に移動されます。</p>
+        </div>
+      </div>
+
+      <h3>2. Web UIの操作</h3>
+
+      <h4>画面構成</h4>
+      <ul>
+        <li><strong>左サイドバー</strong> - 発注書一覧（拠点バッジ、ファイル名、発注日、明細数を表示）</li>
+        <li><strong>中央ペイン</strong> - 発注詳細情報（拠点、店舗名、納品先、メーカー、発注日、発注No、ステータス、ファイル名、備考、商品明細）</li>
+        <li><strong>右ペイン</strong> - PDFプレビュー（原本PDFをリアルタイム表示）</li>
+      </ul>
+
+      <h4>発注書の閲覧</h4>
+      <ol>
+        <li>左サイドバーから発注書を選択</li>
+        <li>中央ペインで詳細情報を確認</li>
+        <li>右ペインでPDF原本と照合</li>
+      </ol>
+
+      <h4>データの編集</h4>
+      <ol>
+        <li>発注書を選択</li>
+        <li>「<strong>編集</strong>」ボタンをクリック</li>
+        <li>必要な項目を修正（発注日、発注No、メーカー、ステータス、ファイル名、備考、商品情報など）</li>
+        <li>「<strong>保存</strong>」ボタンで変更を確定</li>
+      </ol>
+
+      <div class="alert alert-warning">
+        <span class="alert-icon">⚠️</span>
+        <div>
+          <strong>注意</strong><br>
+          「拠点」フィールドは編集できません。拠点を変更する場合は、Google Drive上でPDFを移動してください。
+        </div>
+      </div>
+
+      <h4>アーカイブ機能（完了管理）</h4>
+      <ol>
+        <li>処理が完了した発注書にチェック</li>
+        <li>「<strong>選択した発注書を完了にする</strong>」ボタンをクリック</li>
+        <li>確認ダイアログで「OK」</li>
+        <li>アプリ内では非表示になりますが、データはスプレッドシートに保持されます</li>
+        <li>ステータスを変更すれば再度表示可能</li>
+      </ol>
+
+      <h4>Excel出力と自動アーカイブ</h4>
+      <ol>
+        <li>出力したい発注書にチェック</li>
+        <li>「<strong>選択した店舗をExcel出力</strong>」ボタンをクリック</li>
+        <li>確認ダイアログで「OK」</li>
+        <li>Excelファイルがダウンロードされ、自動的に「完了」ステータスになります</li>
+        <li>アプリ内では非表示になりますが、データはスプレッドシートに保持されます</li>
+      </ol>
+
+      <div class="alert alert-success">
+        <span class="alert-icon">💡</span>
+        <div>
+          <strong>便利な機能</strong><br>
+          ヘッダーの「表示フィルタ」で拠点別に絞り込み可能。「完了」ステータスのデータは自動的に非表示になります。
+        </div>
+      </div>
+
+      <h4>フィルタリング</h4>
+      <p>ヘッダーの「表示フィルタ」ドロップダウンから拠点を選択：</p>
+      <ul>
+        <li><strong>全拠点</strong> - すべての発注書を表示</li>
+        <li><strong>東京</strong> - 東京拠点のみ</li>
+        <li><strong>大阪</strong> - 大阪拠点のみ</li>
+      </ul>
+      <p>※「完了」ステータスのデータは自動的に非表示されます</p>
+    </section>
+
+    <!-- Data Structure Section -->
+    <section id="data">
+      <h2>データ構造</h2>
+      <p class="section-intro">スプレッドシートに保存されるデータの構造を説明します。</p>
+
+      <h3>V2スキーマ（17列構成）</h3>
+      <p>スプレッドシートの「OrderData」シートには以下の列が保存されます：</p>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th width="20%">列名</th>
+              <th width="10%">列</th>
+              <th>説明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>branch_name</code></td>
+              <td>A</td>
+              <td>拠点名（例：東京、大阪）</td>
+            </tr>
+            <tr>
+              <td><code>file_id</code></td>
+              <td>B</td>
+              <td>Google Drive ファイルID</td>
+            </tr>
+            <tr>
+              <td><code>file_name</code></td>
+              <td>C</td>
+              <td>ファイル名（編集可能）</td>
+            </tr>
+            <tr>
+              <td><code>status</code></td>
+              <td>D</td>
+              <td>処理ステータス（未処理/処理中/確認中/完了/保留/要確認）</td>
+            </tr>
+            <tr>
+              <td><code>order_date</code></td>
+              <td>E</td>
+              <td>発注日（YYYY-MM-DD形式）</td>
+            </tr>
+            <tr>
+              <td><code>maker_name</code></td>
+              <td>F</td>
+              <td>メーカー名</td>
+            </tr>
+            <tr>
+              <td><code>shop_name</code></td>
+              <td>G</td>
+              <td>店舗名</td>
+            </tr>
+            <tr>
+              <td><code>product_code</code></td>
+              <td>H</td>
+              <td>品番</td>
+            </tr>
+            <tr>
+              <td><code>product_name</code></td>
+              <td>I</td>
+              <td>商品名</td>
+            </tr>
+            <tr>
+              <td><code>unit_price</code></td>
+              <td>J</td>
+              <td>単価</td>
+            </tr>
+            <tr>
+              <td><code>quantity</code></td>
+              <td>K</td>
+              <td>数量</td>
+            </tr>
+            <tr>
+              <td><code>line_total</code></td>
+              <td>L</td>
+              <td>小計（単価×数量）</td>
+            </tr>
+            <tr>
+              <td><code>processed_at</code></td>
+              <td>M</td>
+              <td>処理日時</td>
+            </tr>
+            <tr>
+              <td><code>delivery_destination</code></td>
+              <td>N</td>
+              <td>納品先（株式会社/有限会社など）</td>
+            </tr>
+            <tr>
+              <td><code>order_number</code></td>
+              <td>O</td>
+              <td>発注番号</td>
+            </tr>
+            <tr>
+              <td><code>comment</code></td>
+              <td>P</td>
+              <td>備考（編集可能）</td>
+            </tr>
+            <tr>
+              <td><code>item_order</code></td>
+              <td>Q</td>
+              <td>商品明細の順序（PDF順）</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="alert alert-info">
+        <span class="alert-icon">🔄</span>
+        <div>
+          <strong>V1.0からの移行</strong><br>
+          V1.0（14列）からV2.0（17列）への移行は、Apps Scriptエディタで <code>migrateToV2Schema()</code> 関数を実行するだけで完了します。既存データは保持されます。
+        </div>
+      </div>
+
+      <h3>データの保存形式</h3>
+      <p>1つの発注書に複数の商品がある場合、商品ごとに1行が作成されます。つまり、発注書の基本情報（拠点、ファイル名、発注日など）は各商品行で重複します。</p>
+
+      <pre data-lang="example">branch_name | file_id | file_name     | ... | product_code | product_name
+------------------------------------------------------------------------
+東京        | abc123  | 発注書_001.pdf | ... | P001        | 商品A
+東京        | abc123  | 発注書_001.pdf | ... | P002        | 商品B
+東京        | abc123  | 発注書_001.pdf | ... | P003        | 商品C</pre>
+
+      <p>この形式により、スプレッドシート上で柔軟にデータ分析やピボットテーブルが作成できます。</p>
+    </section>
+
+    <!-- Troubleshooting Section -->
+    <section id="troubleshooting">
+      <h2>トラブルシューティング</h2>
+      <p class="section-intro">よくある問題とその解決方法を紹介します。</p>
+
+      <h3>PDFが処理されない場合</h3>
+      <ol>
+        <li><strong>スクリプトプロパティの確認</strong>
+          <ul>
+            <li><code>GEMINI_API_KEY</code> が正しく設定されているか</li>
+            <li><code>ROOT_IN_FOLDER_ID</code> が処理対象フォルダのIDか</li>
+            <li><code>SPREADSHEET_ID</code> が正しいスプレッドシートのIDか</li>
+          </ul>
+        </li>
+        <li><strong>Gemini API キーの有効性確認</strong>
+          <ul>
+            <li><a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>でキーが有効か確認</li>
+            <li>API利用制限に達していないか確認</li>
+          </ul>
+        </li>
+        <li><strong>Drive API の有効化確認</strong>
+          <ul>
+            <li><code>appsscript.json</code> で Drive API が有効になっているか確認</li>
+          </ul>
+        </li>
+        <li><strong>フォルダ構造の確認</strong>
+          <ul>
+            <li>PDFが拠点フォルダの中に配置されているか（ルート直下ではない）</li>
+            <li>フォルダ名に特殊文字が含まれていないか</li>
+          </ul>
+        </li>
+      </ol>
+
+      <h3>デバッグ方法</h3>
+      <p>Apps Scriptエディタで以下の関数を実行して、システムの状態を診断できます：</p>
+      <pre data-lang="javascript">debugFolderCheck(); // フォルダとファイルの診断</pre>
+
+      <p>実行ログに詳細な情報が表示されます。「表示」→「ログ」で確認してください。</p>
+
+      <h3>エラーが発生したPDF</h3>
+      <p>処理中にエラーが発生したPDFは、ファイル名に <code>【ERROR】</code> プレフィックスが付きます。以下の原因が考えられます：</p>
+      <ul>
+        <li>PDFが破損している</li>
+        <li>PDFのフォーマットが複雑すぎる</li>
+        <li>AIが内容を正しく解釈できなかった</li>
+        <li>API呼び出しが失敗した</li>
+      </ul>
+      <p>エラーPDFは手動で内容を確認し、必要に応じてデータを手動入力してください。</p>
+
+      <h3>データが表示されない</h3>
+      <ol>
+        <li>ブラウザをリフレッシュ（F5）</li>
+        <li>スプレッドシートに「OrderData」シートが存在するか確認</li>
+        <li>スプレッドシートに実際にデータが保存されているか確認</li>
+        <li>ブラウザのコンソール（F12）でエラーが出ていないか確認</li>
+      </ol>
+
+      <h3>編集が保存されない</h3>
+      <ol>
+        <li>「保存」ボタンをクリックしたか確認</li>
+        <li>スプレッドシートへの書き込み権限があるか確認</li>
+        <li>ブラウザのコンソールでエラーを確認</li>
+      </ol>
+
+      <div class="alert alert-warning">
+        <span class="alert-icon">⚠️</span>
+        <div>
+          <strong>権限エラーが出る場合</strong><br>
+          Webアプリのデプロイ設定で「実行ユーザー: 自分」になっているか確認してください。また、初回アクセス時に権限の承認が必要です。
+        </div>
+      </div>
+
+      <h3>パフォーマンスが遅い</h3>
+      <ul>
+        <li><strong>大量のPDFを一度に処理しない</strong> - 10〜20件ずつに分けて処理</li>
+        <li><strong>完了したデータはアーカイブする</strong> - 表示データ量を減らすことで高速化</li>
+        <li><strong>ブラウザのキャッシュをクリア</strong> - 古いデータが残っている可能性</li>
+      </ul>
+
+      <h3>サポートが必要な場合</h3>
+      <p>上記の方法で解決しない場合は、以下の情報を添えて開発者に連絡してください：</p>
+      <ul>
+        <li>エラーメッセージ（スクリーンショット）</li>
+        <li>Apps Scriptのログ</li>
+        <li>問題が発生した操作手順</li>
+        <li>使用しているブラウザとバージョン</li>
+      </ul>
+    </section>
+
+    <!-- Technical Details -->
+    <section>
+      <h2>技術スタック</h2>
+      <p class="section-intro">このシステムで使用されている技術の詳細です。</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <span class="feature-icon">📜</span>
+          <div class="feature-title">Google Apps Script</div>
+          <div class="feature-desc">V8 Runtime で動作。サーバーサイドロジックとWebアプリのホスティングを担当。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🤖</span>
+          <div class="feature-title">Google Gemini 2.5 Pro API</div>
+          <div class="feature-desc">最先端のマルチモーダルAIでPDFから高精度にテキストとデータを抽出。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">💾</span>
+          <div class="feature-title">Google Spreadsheet</div>
+          <div class="feature-desc">データベースとして機能。リアルタイムでの共同編集やデータ分析が可能。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">📁</span>
+          <div class="feature-title">Google Drive</div>
+          <div class="feature-desc">PDFファイルのストレージ。フォルダ構造で拠点別に整理。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🌐</span>
+          <div class="feature-title">Vanilla JavaScript</div>
+          <div class="feature-desc">フレームワークを使わないシンプルなフロントエンド実装で高速動作。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🎨</span>
+          <div class="feature-title">Modern CSS</div>
+          <div class="feature-desc">Grid、Flexbox、CSS Variables を活用したレスポンシブデザイン。</div>
+        </div>
+      </div>
+
+      <h3>カスタマイズ</h3>
+
+      <h4>AIモデルの変更</h4>
+      <p><code>Code.gs</code> の <code>MODEL_NAME</code> を変更することで、使用するGeminiモデルを切り替えられます：</p>
+      <pre data-lang="javascript">const MODEL_NAME = 'gemini-2.5-pro'; // または他のモデル</pre>
+
+      <h4>プロンプトのカスタマイズ</h4>
+      <p>スプレッドシートの「プロンプト」シート A1セルを編集して、抽出項目や形式を変更できます。より詳細な情報を抽出したい場合や、異なるフォーマットの発注書に対応する場合に有効です。</p>
+
+      <h4>UIのカスタマイズ</h4>
+      <p><code>index.html</code> の <code>&lt;style&gt;</code> タグ内を編集して、デザインを変更できます。色、フォント、レイアウトなど自由にカスタマイズ可能です。</p>
+    </section>
+
+    <!-- Version History -->
+    <section>
+      <h2>更新履歴</h2>
+
+      <h3>V2.0 (2026-02-06) - 機能拡張版</h3>
+      <ul>
+        <li><strong>スキーマ拡張</strong> - 14列→17列（order_number, comment, item_order 追加）</li>
+        <li><strong>発注番号抽出</strong> - PDFから発注No（発注番号）を自動抽出・表示</li>
+        <li><strong>アーカイブ機能</strong> - 完了ステータスでアプリ内非表示（データは保持）</li>
+        <li><strong>ステータス管理</strong> - 6段階のステータスで進捗管理、ステータスバッジ表示</li>
+        <li><strong>備考機能</strong> - 各発注書に備考を追加可能</li>
+        <li><strong>商品明細ソート</strong> - PDFの元の順序を保持して表示（item_order フィールド）</li>
+        <li><strong>ファイル名編集</strong> - リスト表示名を編集可能</li>
+        <li><strong>自動アーカイブ</strong> - Excel出力後、自動的に「完了」ステータスに変更</li>
+        <li><strong>UI改善</strong> - 左側リストにファイル名表示、中央詳細にファイル名・備考フィールド追加</li>
+      </ul>
+
+      <h3>V1.0 - 初期バージョン</h3>
+      <ul>
+        <li><strong>初回リリース</strong> - AI-OCR機能実装</li>
+        <li><strong>納品先対応版</strong> - delivery_destination フィールド追加</li>
+      </ul>
+
+      <div class="alert alert-success">
+        <span class="alert-icon">🚀</span>
+        <div>
+          <strong>V2.0は大幅アップデート！</strong><br>
+          実用性が大きく向上し、より複雑な業務フローに対応できるようになりました。
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <p><strong>AI-OCR 発注管理システム V2.0</strong></p>
+    <p>Developed by tsfactory</p>
+    <p style="margin-top: 16px; font-size: 14px;">
+      Powered by <a href="https://ai.google.dev/" target="_blank">Google Gemini AI</a> |
+      Built with Google Apps Script
+    </p>
+    <p style="margin-top: 24px; font-size: 13px; color: rgba(255,255,255,0.5);">
+      © 2026 tsfactory. このプロジェクトは自由に使用・改変できます。
+    </p>
+  </footer>
+
+</body>
+</html>
