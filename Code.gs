@@ -66,12 +66,13 @@ function processSingleFile(file, branchName, targetBranchFolder, ssId, apiKey, p
                   ? extractedData.items 
                   : [{ product_code: "", product_name: "(明細なし)", quantity: 0, unit_price: 0 }];
 
-    const records = items.map(item => ({
+    const records = items.map((item, index) => ({
       file_id: file.getId(),
       branch_name: branchName,
       file_name: fileName,
       status: '未処理',
       order_date: extractedData.order_date || '',
+      order_number: extractedData.order_number || '',
       maker_name: extractedData.maker_name || '',
       shop_name: extractedData.shop_name || '',
       delivery_destination: extractedData.delivery_destination || '',
@@ -79,7 +80,8 @@ function processSingleFile(file, branchName, targetBranchFolder, ssId, apiKey, p
       product_name: item.product_name || '',
       quantity: safeParseFloat(item.quantity),
       unit_price: safeParseFloat(item.unit_price),
-      processed_at: new Date()
+      processed_at: new Date(),
+      item_order: index + 1
     }));
 
     records.forEach(r => r.line_total = r.quantity * r.unit_price);
@@ -128,7 +130,10 @@ function saveToSpreadsheet(ssId, records) {
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
-    const headers = ['branch_name', 'file_id', 'file_name', 'status', 'order_date', 'maker_name', 'shop_name', 'product_code', 'product_name', 'unit_price', 'quantity', 'line_total', 'processed_at', 'delivery_destination'];
+    const headers = ['branch_name', 'file_id', 'file_name', 'status', 'order_date',
+                    'maker_name', 'shop_name', 'product_code', 'product_name',
+                    'unit_price', 'quantity', 'line_total', 'processed_at',
+                    'delivery_destination', 'order_number', 'comment', 'item_order'];
     sheet.appendRow(headers);
     sheet.setFrozenRows(1);
   }
@@ -136,7 +141,7 @@ function saveToSpreadsheet(ssId, records) {
     r.branch_name, r.file_id, r.file_name, r.status,
     r.order_date, r.maker_name, r.shop_name,
     r.product_code, r.product_name, r.unit_price, r.quantity, r.line_total, r.processed_at,
-    r.delivery_destination
+    r.delivery_destination, r.order_number || '', r.comment || '', r.item_order || 0
   ]);
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
 }
@@ -165,7 +170,7 @@ function getDataFromSpreadsheet() {
     const MAX_ROWS = 500;
     const startRow = Math.max(2, lastRow - MAX_ROWS + 1);
     const numRows = lastRow - startRow + 1;
-    const data = sheet.getRange(startRow, 1, numRows, 14).getValues();
+    const data = sheet.getRange(startRow, 1, numRows, 17).getValues();
     
     const formattedData = data.map((row, index) => {
       try {
@@ -202,14 +207,22 @@ function getDataFromSpreadsheet() {
           p_name: String(row[8] || ""),
           price: toNum(row[9]),
           qty: toNum(row[10]),
-          total: toNum(row[11])
+          total: toNum(row[11]),
+          order_number: String(row[14] || ""),
+          comment: String(row[15] || ""),
+          item_order: toNum(row[16])
         };
       } catch (rowErr) {
         return { uniqueKey: 'error_' + index, branch: 'データ破損', items: [] };
       }
     });
 
-    return formattedData.reverse();
+    // 完了ステータスのデータを除外
+    const filteredData = formattedData.filter(item => {
+      return item.status !== '完了';
+    });
+
+    return filteredData;
   } catch (e) {
     console.error(`[SERVER] 重大エラー: ${e.message}`);
     throw new Error(`サーバーエラー: ${e.message}`);
@@ -220,11 +233,12 @@ function getDataFromSpreadsheet() {
  * Excel出力：選択されたデータをテンポラリSS経由でxlsx出力
  * ★納品先を一番右に配置
  */
-function exportSelectedDataToExcel(selectedKeys) {
+function exportSelectedDataToExcel(selectedKeys, autoArchive = true) {
   const ss = SpreadsheetApp.openById(PROPS.getProperty('SPREADSHEET_ID'));
   const sheet = ss.getSheetByName(SHEET_NAME);
   const allValues = sheet.getDataRange().getValues();
   const exportTargets = [];
+  const exportedFileIds = new Set();
 
   selectedKeys.forEach(key => {
     const idx = key.lastIndexOf('_');
@@ -234,6 +248,7 @@ function exportSelectedDataToExcel(selectedKeys) {
     const arrIdx = rowNum - 1;
     if (allValues[arrIdx] && String(allValues[arrIdx][1]) === fileId) {
       exportTargets.push(allValues[arrIdx]);
+      exportedFileIds.add(fileId);
     }
   });
 
@@ -242,27 +257,29 @@ function exportSelectedDataToExcel(selectedKeys) {
   const tempSS = SpreadsheetApp.create("Export_" + Utilities.formatDate(new Date(), "JST", "yyyyMMdd_HHmm"));
   const tempSheet = tempSS.getSheets()[0];
   
-  // ★ヘッダー：納品先を一番右に配置
-  const headers = ['拠点', '発注日', 'メーカー', '店舗名', '品番', '商品名', '単価', '数量', '小計', 'ステータス', '納品先'];
+  // ヘッダー更新（発注No追加）
+  const headers = ['拠点', '発注日', '発注No', 'メーカー', '店舗名', '品番', '商品名', '単価', '数量', '小計', 'ステータス', '納品先'];
   tempSheet.appendRow(headers);
-  
-  // ★データ行：納品先を一番右に配置
+
   const rows = exportTargets.map(r => [
-    r[0],  // 拠点
-    r[4],  // 発注日
-    r[5],  // メーカー
-    r[6],  // 店舗名
-    r[7],  // 品番
-    r[8],  // 商品名
-    r[9],  // 単価
-    r[10], // 数量
-    r[11], // 小計
-    r[3],  // ステータス
-    r[13]  // 納品先（一番右）
+    r[0], r[4], r[14], r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[3], r[13]
   ]);
   tempSheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
-  
-  return `https://docs.google.com/spreadsheets/d/${tempSS.getId()}/export?format=xlsx`;
+
+  const exportUrl = `https://docs.google.com/spreadsheets/d/${tempSS.getId()}/export?format=xlsx`;
+
+  // 自動アーカイブ処理（データは保持）
+  if (autoArchive && exportedFileIds.size > 0) {
+    try {
+      const fileIdsArray = Array.from(exportedFileIds);
+      const archiveResult = archiveOrdersByFileIds(fileIdsArray);
+      console.log(`[EXPORT+ARCHIVE] ${archiveResult.updatedCount}行を「完了」に変更`);
+    } catch (e) {
+      console.error(`[EXPORT] 自動アーカイブ失敗: ${e.message}`);
+    }
+  }
+
+  return exportUrl;
 }
 
 /**
@@ -277,7 +294,17 @@ function updateOrderData(updates) {
     if (idx === -1) return;
     const rowNum = parseInt(update.uniqueKey.substring(idx + 1), 10);
 
+    // ステータス・コメント更新
+    if (update.status !== undefined) {
+      sheet.getRange(rowNum, 4).setValue(update.status);
+    }
+    if (update.comment !== undefined) {
+      sheet.getRange(rowNum, 16).setValue(update.comment);
+    }
+
+    // 既存フィールド更新
     sheet.getRange(rowNum, 5).setValue(update.date);
+    sheet.getRange(rowNum, 15).setValue(update.orderNum);
     sheet.getRange(rowNum, 6).setValue(update.maker);
     sheet.getRange(rowNum, 7).setValue(update.shop);
     sheet.getRange(rowNum, 14).setValue(update.dest);
@@ -288,6 +315,50 @@ function updateOrderData(updates) {
     sheet.getRange(rowNum, 12).setFormula(`=J${rowNum}*K${rowNum}`);
   });
   return "保存しました";
+}
+
+/**
+ * アーカイブ機能：選択されたfileIdを「完了」ステータスに変更
+ * データは物理削除せず、スプレッドシートに保持される
+ */
+function archiveOrdersByFileIds(fileIds) {
+  console.log(`[ARCHIVE] 開始 - 対象件数: ${fileIds.length}`);
+
+  if (!fileIds || fileIds.length === 0) {
+    throw new Error("対象が指定されていません");
+  }
+
+  try {
+    const ss = SpreadsheetApp.openById(PROPS.getProperty('SPREADSHEET_ID'));
+    const sheet = ss.getSheetByName(SHEET_NAME);
+    const lastRow = sheet.getLastRow();
+
+    if (lastRow <= 1) return { updatedCount: 0, message: "対象データなし" };
+
+    // 対象行を収集してステータス更新
+    let updatedCount = 0;
+    const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();  // branch, file_id
+
+    for (let i = 0; i < data.length; i++) {
+      const fileId = String(data[i][1]);
+      if (fileIds.includes(fileId)) {
+        const rowNum = i + 2;
+        sheet.getRange(rowNum, 4).setValue('完了');  // Column D (status)
+        updatedCount++;
+      }
+    }
+
+    console.log(`[ARCHIVE] 完了 - ${updatedCount}行を「完了」に変更`);
+    return {
+      updatedCount: updatedCount,
+      fileCount: fileIds.length,
+      message: `${fileIds.length}ファイル(${updatedCount}行)を完了しました`
+    };
+
+  } catch (e) {
+    console.error(`[ARCHIVE] エラー: ${e.message}`);
+    throw new Error(`アーカイブ処理失敗: ${e.message}`);
+  }
 }
 
 /**
@@ -308,4 +379,47 @@ function debugFolderCheck() {
       while (files.hasNext()) console.log(`  📄 ${files.next().getName()}`);
     }
   } catch (e) { console.error(e.message); }
+}
+
+/**
+ * 既存データをV2スキーマ（17列）にマイグレーション
+ * ※初回デプロイ時に1度だけ実行
+ */
+function migrateToV2Schema() {
+  const ss = SpreadsheetApp.openById(PROPS.getProperty('SPREADSHEET_ID'));
+  const sheet = ss.getSheetByName(SHEET_NAME);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow <= 1) return "データなし";
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headers.length >= 17) return "既にマイグレーション済み";
+
+  // 新カラムを追加
+  sheet.getRange(1, 15).setValue('order_number');
+  sheet.getRange(1, 16).setValue('comment');
+  sheet.getRange(1, 17).setValue('item_order');
+
+  // 既存データに初期値を設定
+  const data = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  let currentFileId = null;
+  let itemOrder = 0;
+
+  for (let i = 0; i < data.length; i++) {
+    const fileId = String(data[i][0]);
+    const rowNum = i + 2;
+
+    if (fileId !== currentFileId) {
+      currentFileId = fileId;
+      itemOrder = 1;
+    } else {
+      itemOrder++;
+    }
+
+    sheet.getRange(rowNum, 15).setValue('');
+    sheet.getRange(rowNum, 16).setValue('');
+    sheet.getRange(rowNum, 17).setValue(itemOrder);
+  }
+
+  return `マイグレーション完了: ${lastRow - 1}行`;
 }

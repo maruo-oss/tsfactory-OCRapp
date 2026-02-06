@@ -89,6 +89,27 @@
     .empty-state { text-align: center; color: #9aa0a6; padding: 40px; }
     .loading { text-align: center; padding: 20px; color: #666; font-style: italic; }
     .hidden { display: none !important; }
+
+    /* Select and Textarea readonly styles */
+    select.form-input.readonly {
+      background: transparent;
+      border: 1px solid transparent;
+      font-weight: bold;
+      pointer-events: none;
+      appearance: none;
+    }
+
+    textarea.form-input {
+      font-family: inherit;
+      line-height: 1.4;
+    }
+
+    textarea.form-input.readonly {
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 0;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -113,6 +134,9 @@
       </div>
       <button onclick="exportSelectedFiles()" class="btn-primary" title="チェックした発注書をまとめてExcel出力">
         <span>📥</span> 選択した店舗をExcel出力
+      </button>
+      <button onclick="archiveSelectedFiles()" class="btn-secondary" title="チェックした発注書を完了にする（データは保持）">
+        <span>✓</span> 選択した発注書を完了にする
       </button>
     </header>
 
@@ -159,6 +183,25 @@
           <div class="info-item">
             <label>発注日</label>
             <input type="date" id="viewDate" readonly class="form-input readonly">
+          </div>
+          <div class="info-item">
+            <label>発注No</label>
+            <input type="text" id="viewOrderNumber" class="form-input readonly" readonly>
+          </div>
+          <div class="info-item">
+            <label>ステータス</label>
+            <select id="viewStatus" class="form-input readonly" disabled>
+              <option value="未処理">未処理</option>
+              <option value="処理中">処理中</option>
+              <option value="確認中">確認中</option>
+              <option value="完了">完了</option>
+              <option value="保留">保留</option>
+              <option value="要確認">要確認</option>
+            </select>
+          </div>
+          <div class="info-item" style="grid-column: 1 / -1;">
+            <label>コメント・備考</label>
+            <textarea id="viewComment" class="form-input readonly" rows="2" maxlength="500" style="resize:vertical;" readonly></textarea>
           </div>
         </div>
 
@@ -247,12 +290,24 @@
             dest: item.dest,
             maker: item.maker,
             date: item.date,
+            order_number: item.order_number || '',
+            status: item.status || '未処理',
+            comment: item.comment || '',
             items: []
           };
         }
         groups[key].items.push(item);
       });
-      
+
+      // 各グループ内でitem_orderでソート
+      Object.values(groups).forEach(group => {
+        group.items.sort((a, b) => {
+          const orderA = a.item_order || 0;
+          const orderB = b.item_order || 0;
+          return orderA - orderB;
+        });
+      });
+
       groupedFiles = Object.values(groups);
       filterList();
       
@@ -303,6 +358,7 @@
           <div class="file-shop">
             <span class="badge" data-branch="${file.branch}">${file.branch || '未設定'}</span>
             ${file.dest || '(納品先不明)'}
+            ${file.status && file.status !== '未処理' ? `<span class="badge" style="background:#f57c00; margin-left:4px;">${file.status}</span>` : ''}
           </div>
           <div class="file-sub">
             <span>${file.date || '-'}</span>
@@ -356,8 +412,15 @@
         if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
             dateEl.value = dateVal;
         } else {
-            dateEl.value = ""; 
+            dateEl.value = "";
         }
+
+        // 発注番号の設定
+        setText('viewOrderNumber', fileGroup.order_number || '');
+
+        // ステータス・コメントの設定
+        document.getElementById('viewStatus').value = fileGroup.status || '未処理';
+        document.getElementById('viewComment').value = fileGroup.comment || '';
 
         const tbody = document.getElementById('detailTableBody');
         tbody.innerHTML = '';
@@ -421,10 +484,11 @@
 
     document.querySelectorAll('.form-input, .detail-input').forEach(input => {
       if (input.id === 'viewBranch') return;
-      
+
       input.readOnly = false;
+      input.disabled = false;  // select用に追加
       input.classList.remove('readonly');
-      
+
       input.addEventListener('change', function() {
         this.classList.add('changed');
       });
@@ -470,18 +534,24 @@
     const dest = document.getElementById('viewDest').value;
     const maker = document.getElementById('viewMaker').value;
     const date = document.getElementById('viewDate').value;
-    
+    const orderNum = document.getElementById('viewOrderNumber').value;
+    const status = document.getElementById('viewStatus').value;
+    const comment = document.getElementById('viewComment').value;
+
     const rows = document.querySelectorAll('#detailTableBody tr');
     rows.forEach(tr => {
       const key = tr.dataset.key;
       const inputs = tr.querySelectorAll('input');
-      
+
       updates.push({
         uniqueKey: key,
-        shop: shop, 
+        shop: shop,
         dest: dest,
-        maker: maker, 
+        maker: maker,
         date: date,
+        orderNum: orderNum,
+        status: status,
+        comment: comment,
         p_code: inputs[0].value,
         p_name: inputs[1].value,
         price: inputs[2].value,
@@ -520,12 +590,42 @@
       .map(row => row.uniqueKey);
 
     if (!targetKeys.length) return alert('データがありません');
-    if (!confirm('選択したデータをExcel出力しますか？')) return;
+
+    // 自動アーカイブの確認メッセージ
+    const msg = `選択したデータをExcel出力しますか？\n\n【重要】出力後、選択した発注書は自動的に「完了」ステータスになり、アプリ内では非表示になります。\n（データはスプレッドシートに保持されます）`;
+    if (!confirm(msg)) return;
 
     google.script.run
-      .withSuccessHandler(url => window.open(url, '_blank'))
+      .withSuccessHandler(url => {
+        window.open(url, '_blank');
+        document.getElementById('selectAllFiles').checked = false;
+        setTimeout(() => loadData(), 500);  // 再読み込みで完了データが非表示に
+      })
       .withFailureHandler(e => alert('出力エラー: ' + e.message))
-      .exportSelectedDataToExcel(targetKeys);
+      .exportSelectedDataToExcel(targetKeys, true);
+  }
+
+  function archiveSelectedFiles() {
+    const checked = document.querySelectorAll('.file-checkbox:checked');
+    if (!checked.length) return alert('完了にしたい発注書にチェックを入れてください');
+
+    const targetFileIds = Array.from(checked)
+      .map(cb => cb.value)
+      .filter(val => val !== "" && val !== "unknown");
+
+    if (!targetFileIds.length) return alert('対象データがありません');
+
+    const count = targetFileIds.length;
+    if (!confirm(`${count}件の発注書を「完了」ステータスにします。\n\nアプリ内では非表示になりますが、データはスプレッドシートに保持されます。\nよろしいですか？`)) return;
+
+    google.script.run
+      .withSuccessHandler(result => {
+        alert(result.message);
+        document.getElementById('selectAllFiles').checked = false;
+        loadData();  // 再読み込みで完了データが非表示になる
+      })
+      .withFailureHandler(e => alert('エラー: ' + e.message))
+      .archiveOrdersByFileIds(targetFileIds);
   }
 
   function triggerManualProcess() {
