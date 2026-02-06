@@ -294,6 +294,11 @@ function updateOrderData(updates) {
     if (idx === -1) return;
     const rowNum = parseInt(update.uniqueKey.substring(idx + 1), 10);
 
+    // ファイル名更新
+    if (update.fileName !== undefined) {
+      sheet.getRange(rowNum, 3).setValue(update.fileName);
+    }
+
     // ステータス・コメント更新
     if (update.status !== undefined) {
       sheet.getRange(rowNum, 4).setValue(update.status);

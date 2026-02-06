@@ -201,7 +201,7 @@
           </div>
           <div class="info-item" style="grid-column: 1 / -1;">
             <label>ファイル名</label>
-            <input type="text" id="viewFileName" class="form-input readonly" readonly>
+            <input type="text" id="viewFileName" class="form-input">
           </div>
           <div class="info-item" style="grid-column: 1 / -1;">
             <label>備考</label>
@@ -541,6 +541,7 @@
     const maker = document.getElementById('viewMaker').value;
     const date = document.getElementById('viewDate').value;
     const orderNum = document.getElementById('viewOrderNumber').value;
+    const fileName = document.getElementById('viewFileName').value;
     const status = document.getElementById('viewStatus').value;
     const comment = document.getElementById('viewComment').value;
 
@@ -556,6 +557,7 @@
         maker: maker,
         date: date,
         orderNum: orderNum,
+        fileName: fileName,
         status: status,
         comment: comment,
         p_code: inputs[0].value,
