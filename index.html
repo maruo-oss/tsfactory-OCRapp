@@ -200,7 +200,11 @@
             </select>
           </div>
           <div class="info-item" style="grid-column: 1 / -1;">
-            <label>コメント・備考</label>
+            <label>ファイル名</label>
+            <input type="text" id="viewFileName" class="form-input readonly" readonly>
+          </div>
+          <div class="info-item" style="grid-column: 1 / -1;">
+            <label>備考</label>
             <textarea id="viewComment" class="form-input readonly" rows="2" maxlength="500" style="resize:vertical;" readonly></textarea>
           </div>
         </div>
@@ -351,13 +355,12 @@
         selectFile(file, div);
       };
       
-      // ★変更: file.shop → file.dest（納品先を表示）
       div.innerHTML = `
         <input type="checkbox" class="file-checkbox" value="${file.fileId || ''}">
         <div class="file-info">
           <div class="file-shop">
             <span class="badge" data-branch="${file.branch}">${file.branch || '未設定'}</span>
-            ${file.dest || '(納品先不明)'}
+            ${file.fileName || '(ファイル名不明)'}
             ${file.status && file.status !== '未処理' ? `<span class="badge" style="background:#f57c00; margin-left:4px;">${file.status}</span>` : ''}
           </div>
           <div class="file-sub">
@@ -418,7 +421,10 @@
         // 発注番号の設定
         setText('viewOrderNumber', fileGroup.order_number || '');
 
-        // ステータス・コメントの設定
+        // ファイル名の設定
+        setText('viewFileName', fileGroup.fileName || '');
+
+        // ステータス・備考の設定
         document.getElementById('viewStatus').value = fileGroup.status || '未処理';
         document.getElementById('viewComment').value = fileGroup.comment || '';
 
