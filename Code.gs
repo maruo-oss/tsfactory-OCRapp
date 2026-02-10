@@ -387,44 +387,348 @@ function debugFolderCheck() {
 }
 
 /**
+ * PDFの読み取り結果を詳細ログ出力（診断専用）
+ * フォルダ構造確認 → PDF検出 → Gemini API呼び出し → 結果出力
+ */
+function debugOcrWithDetailedLog() {
+  console.log('========================================');
+  console.log('【診断開始】PDF読み取りテスト');
+  console.log('========================================\n');
+
+  try {
+    // 1. スクリプトプロパティの確認
+    console.log('--- ステップ1: スクリプトプロパティ確認 ---');
+    const rootInId = PROPS.getProperty('ROOT_IN_FOLDER_ID');
+    const rootProcessedId = PROPS.getProperty('ROOT_PROCESSED_FOLDER_ID');
+    const ssId = PROPS.getProperty('SPREADSHEET_ID');
+    const apiKey = PROPS.getProperty('GEMINI_API_KEY');
+
+    console.log(`ROOT_IN_FOLDER_ID: ${rootInId ? '✓ 設定済み' : '✗ 未設定'}`);
+    console.log(`ROOT_PROCESSED_FOLDER_ID: ${rootProcessedId ? '✓ 設定済み' : '✗ 未設定'}`);
+    console.log(`SPREADSHEET_ID: ${ssId ? '✓ 設定済み' : '✗ 未設定'}`);
+    console.log(`GEMINI_API_KEY: ${apiKey ? '✓ 設定済み' : '✗ 未設定'}\n`);
+
+    if (!rootInId || !rootProcessedId || !ssId || !apiKey) {
+      throw new Error('スクリプトプロパティが不足しています');
+    }
+
+    // 2. プロンプト取得
+    console.log('--- ステップ2: Geminiプロンプト取得 ---');
+    const geminiPrompt = getPromptFromSheet(ssId);
+    console.log(`プロンプト長: ${geminiPrompt.length}文字`);
+    console.log(`プロンプト内容:\n${geminiPrompt}\n`);
+
+    // 3. フォルダ構造の確認
+    console.log('--- ステップ3: フォルダ構造確認 ---');
+    const rootInFolder = DriveApp.getFolderById(rootInId);
+    console.log(`ルートフォルダ名: ${rootInFolder.getName()}`);
+
+    const branchFolders = rootInFolder.getFolders();
+    let totalBranchCount = 0;
+    let totalPdfCount = 0;
+    const pdfList = [];
+
+    while (branchFolders.hasNext()) {
+      const branchFolder = branchFolders.next();
+      const branchName = branchFolder.getName();
+      totalBranchCount++;
+
+      console.log(`\n📁 拠点フォルダ: ${branchName}`);
+
+      const files = branchFolder.getFilesByType(MimeType.PDF);
+      let branchPdfCount = 0;
+
+      while (files.hasNext()) {
+        const file = files.next();
+        branchPdfCount++;
+        totalPdfCount++;
+
+        console.log(`  📄 ${file.getName()} (ID: ${file.getId()})`);
+        pdfList.push({ file: file, branchName: branchName });
+      }
+
+      if (branchPdfCount === 0) {
+        console.log('  ⚠️ PDFファイルなし');
+      }
+    }
+
+    console.log(`\n拠点フォルダ数: ${totalBranchCount}`);
+    console.log(`PDF総数: ${totalPdfCount}\n`);
+
+    if (totalPdfCount === 0) {
+      console.warn('⚠️ 処理対象のPDFファイルが見つかりませんでした');
+      console.warn('フォルダ構造を確認してください:');
+      console.warn('ROOT_IN_FOLDER → 拠点フォルダ → PDFファイル');
+      return;
+    }
+
+    // 4. 最初の1件だけOCR実行（全件だと時間がかかるため）
+    console.log('========================================');
+    console.log('--- ステップ4: OCR処理実行（最初の1ファイルのみ）---');
+    console.log('========================================\n');
+
+    const firstPdf = pdfList[0];
+    const file = firstPdf.file;
+    const branchName = firstPdf.branchName;
+
+    console.log(`対象ファイル: ${file.getName()}`);
+    console.log(`拠点名: ${branchName}`);
+    console.log(`ファイルID: ${file.getId()}`);
+    console.log(`ファイルサイズ: ${(file.getSize() / 1024).toFixed(2)} KB\n`);
+
+    console.log('Gemini API呼び出し中...\n');
+
+    const startTime = new Date();
+    const extractedData = callGeminiApi(file, apiKey, geminiPrompt);
+    const endTime = new Date();
+    const elapsedTime = ((endTime - startTime) / 1000).toFixed(2);
+
+    console.log(`✓ API応答成功（処理時間: ${elapsedTime}秒）\n`);
+
+    // 5. 抽出結果の詳細出力
+    console.log('========================================');
+    console.log('--- ステップ5: 抽出結果 ---');
+    console.log('========================================\n');
+
+    console.log('【基本情報】');
+    console.log(`  発注日: ${extractedData.order_date || '(なし)'}`);
+    console.log(`  発注番号: ${extractedData.order_number || '(なし)'}`);
+    console.log(`  メーカー名: ${extractedData.maker_name || '(なし)'}`);
+    console.log(`  店舗名: ${extractedData.shop_name || '(なし)'}`);
+    console.log(`  納品先: ${extractedData.delivery_destination || '(なし)'}\n`);
+
+    console.log('【商品明細】');
+    if (extractedData.items && extractedData.items.length > 0) {
+      console.log(`  明細数: ${extractedData.items.length}件\n`);
+
+      extractedData.items.forEach((item, index) => {
+        console.log(`  [${index + 1}] 品番: ${item.product_code || '(なし)'}`);
+        console.log(`      商品名: ${item.product_name || '(なし)'}`);
+        console.log(`      数量: ${item.quantity || 0}`);
+        console.log(`      単価: ${item.unit_price || 0}`);
+        console.log(`      小計: ${(safeParseFloat(item.quantity) * safeParseFloat(item.unit_price)).toLocaleString()}円\n`);
+      });
+    } else {
+      console.log('  ⚠️ 商品明細なし\n');
+    }
+
+    // 6. JSON全体の出力
+    console.log('========================================');
+    console.log('--- ステップ6: 生JSONデータ ---');
+    console.log('========================================');
+    console.log(JSON.stringify(extractedData, null, 2));
+    console.log('\n');
+
+    // 7. まとめ
+    console.log('========================================');
+    console.log('【診断完了】');
+    console.log('========================================');
+    console.log(`✓ フォルダ構造: OK（拠点数: ${totalBranchCount}, PDF数: ${totalPdfCount}）`);
+    console.log(`✓ API呼び出し: OK（処理時間: ${elapsedTime}秒）`);
+    console.log(`✓ データ抽出: OK（明細数: ${extractedData.items ? extractedData.items.length : 0}件）\n`);
+
+    console.log('※ 実際の処理を実行するには processOrders() を実行してください');
+
+  } catch (e) {
+    console.error('\n========================================');
+    console.error('【エラー発生】');
+    console.error('========================================');
+    console.error(`エラーメッセージ: ${e.message}`);
+    console.error(`スタックトレース:\n${e.stack}`);
+    throw e;
+  }
+}
+
+/**
+ * スプレッドシートのスキーマ診断
+ * 現在の列構成とV2スキーマとの比較を表示
+ */
+function debugSchemaCheck() {
+  console.log('========================================');
+  console.log('【スキーマ診断】スプレッドシート列構成チェック');
+  console.log('========================================\n');
+
+  try {
+    const ss = SpreadsheetApp.openById(PROPS.getProperty('SPREADSHEET_ID'));
+    const sheet = ss.getSheetByName(SHEET_NAME);
+
+    if (!sheet) {
+      console.error(`エラー: シート「${SHEET_NAME}」が見つかりません`);
+      return;
+    }
+
+    const lastRow = sheet.getLastRow();
+    const lastColumn = sheet.getLastColumn();
+
+    console.log(`シート名: ${SHEET_NAME}`);
+    console.log(`データ行数: ${lastRow}行`);
+    console.log(`列数: ${lastColumn}列\n`);
+
+    // ヘッダー行を取得
+    const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+
+    console.log('--- 現在の列構成 ---');
+    headers.forEach((header, index) => {
+      const colLetter = String.fromCharCode(65 + index); // A=65
+      console.log(`${colLetter}列 (${index + 1}): ${header}`);
+    });
+
+    // V2スキーマの期待値
+    const expectedHeaders = [
+      'branch_name',
+      'file_id',
+      'file_name',
+      'status',
+      'order_date',
+      'maker_name',
+      'shop_name',
+      'product_code',
+      'product_name',
+      'unit_price',
+      'quantity',
+      'line_total',
+      'processed_at',
+      'delivery_destination',
+      'order_number',
+      'comment',
+      'item_order'
+    ];
+
+    console.log('\n--- V2スキーマとの比較 ---');
+    let hasError = false;
+
+    for (let i = 0; i < expectedHeaders.length; i++) {
+      const colLetter = String.fromCharCode(65 + i);
+      const expected = expectedHeaders[i];
+      const actual = headers[i] || '(なし)';
+      const match = expected === actual;
+
+      if (match) {
+        console.log(`✓ ${colLetter}列: ${expected}`);
+      } else {
+        console.error(`✗ ${colLetter}列: 期待=${expected}, 実際=${actual}`);
+        hasError = true;
+      }
+    }
+
+    console.log('\n========================================');
+    if (hasError || lastColumn < 17) {
+      console.warn('【結果】スキーマが一致しません');
+      console.warn(`現在: ${lastColumn}列, 必要: 17列\n`);
+      console.warn('👉 migrateToV2Schema() を実行してください');
+    } else {
+      console.log('【結果】✓ V2スキーマと一致しています');
+    }
+    console.log('========================================');
+
+    // サンプルデータを1行表示
+    if (lastRow > 1) {
+      console.log('\n--- サンプルデータ（2行目） ---');
+      const sampleRow = sheet.getRange(2, 1, 1, lastColumn).getValues()[0];
+      sampleRow.forEach((value, index) => {
+        const colLetter = String.fromCharCode(65 + index);
+        const header = headers[index] || `列${index + 1}`;
+        console.log(`${colLetter}列 (${header}): ${value}`);
+      });
+    }
+
+  } catch (e) {
+    console.error(`エラー: ${e.message}`);
+    throw e;
+  }
+}
+
+/**
  * 既存データをV2スキーマ（17列）にマイグレーション
  * ※初回デプロイ時に1度だけ実行
  */
 function migrateToV2Schema() {
-  const ss = SpreadsheetApp.openById(PROPS.getProperty('SPREADSHEET_ID'));
-  const sheet = ss.getSheetByName(SHEET_NAME);
-  const lastRow = sheet.getLastRow();
+  console.log('========================================');
+  console.log('【マイグレーション開始】V1 → V2スキーマ');
+  console.log('========================================\n');
 
-  if (lastRow <= 1) return "データなし";
+  try {
+    const ss = SpreadsheetApp.openById(PROPS.getProperty('SPREADSHEET_ID'));
+    const sheet = ss.getSheetByName(SHEET_NAME);
+    const lastRow = sheet.getLastRow();
 
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  if (headers.length >= 17) return "既にマイグレーション済み";
-
-  // 新カラムを追加
-  sheet.getRange(1, 15).setValue('order_number');
-  sheet.getRange(1, 16).setValue('comment');
-  sheet.getRange(1, 17).setValue('item_order');
-
-  // 既存データに初期値を設定
-  const data = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
-  let currentFileId = null;
-  let itemOrder = 0;
-
-  for (let i = 0; i < data.length; i++) {
-    const fileId = String(data[i][0]);
-    const rowNum = i + 2;
-
-    if (fileId !== currentFileId) {
-      currentFileId = fileId;
-      itemOrder = 1;
-    } else {
-      itemOrder++;
+    if (lastRow <= 1) {
+      console.log('データなし: マイグレーション不要');
+      return "データなし";
     }
 
-    sheet.getRange(rowNum, 15).setValue('');
-    sheet.getRange(rowNum, 16).setValue('');
-    sheet.getRange(rowNum, 17).setValue(itemOrder);
-  }
+    const lastColumn = sheet.getLastColumn();
+    console.log(`現在の列数: ${lastColumn}列`);
+    console.log(`データ行数: ${lastRow - 1}行\n`);
 
-  return `マイグレーション完了: ${lastRow - 1}行`;
+    const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+
+    if (lastColumn >= 17) {
+      console.log('既にマイグレーション済み（17列以上）');
+      return "既にマイグレーション済み";
+    }
+
+    console.log('--- ステップ1: 列ヘッダー追加 ---');
+
+    // O列（15列目）: order_number
+    sheet.getRange(1, 15).setValue('order_number');
+    console.log('✓ O列 (15): order_number 追加');
+
+    // P列（16列目）: comment
+    sheet.getRange(1, 16).setValue('comment');
+    console.log('✓ P列 (16): comment 追加');
+
+    // Q列（17列目）: item_order
+    sheet.getRange(1, 17).setValue('item_order');
+    console.log('✓ Q列 (17): item_order 追加\n');
+
+    console.log('--- ステップ2: 既存データに初期値設定 ---');
+
+    // 既存データに初期値を設定
+    const data = sheet.getRange(2, 2, lastRow - 1, 1).getValues(); // B列（file_id）を取得
+    let currentFileId = null;
+    let itemOrder = 0;
+    let processedCount = 0;
+
+    for (let i = 0; i < data.length; i++) {
+      const fileId = String(data[i][0]);
+      const rowNum = i + 2;
+
+      // file_idが変わったら商品順序をリセット
+      if (fileId !== currentFileId) {
+        currentFileId = fileId;
+        itemOrder = 1;
+      } else {
+        itemOrder++;
+      }
+
+      // O列: order_number（空文字）
+      sheet.getRange(rowNum, 15).setValue('');
+      // P列: comment（空文字）
+      sheet.getRange(rowNum, 16).setValue('');
+      // Q列: item_order
+      sheet.getRange(rowNum, 17).setValue(itemOrder);
+
+      processedCount++;
+
+      if (processedCount % 50 === 0) {
+        console.log(`処理中... ${processedCount}/${data.length}行`);
+      }
+    }
+
+    console.log(`✓ ${processedCount}行のデータを更新\n`);
+
+    console.log('========================================');
+    console.log('【マイグレーション完了】');
+    console.log('========================================');
+    console.log(`処理行数: ${lastRow - 1}行`);
+    console.log(`列数: 14列 → 17列\n`);
+    console.log('✓ order_number, comment, item_order を追加しました');
+
+    return `マイグレーション完了: ${lastRow - 1}行`;
+
+  } catch (e) {
+    console.error(`マイグレーションエラー: ${e.message}`);
+    throw e;
+  }
 }
