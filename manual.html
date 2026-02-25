@@ -365,6 +365,7 @@
         <li><a href="#usage">使い方</a></li>
         <li><a href="#tips">便利な機能</a></li>
         <li><a href="#faq">よくある質問</a></li>
+        <li><a href="#prompt-guide">プロンプトの修正方法</a></li>
       </ul>
     </div>
 
@@ -670,6 +671,201 @@
       <div class="alert alert-info">
         <strong>💬 サポートが必要な場合</strong>
         システムの使い方でわからないことがあれば、システム管理者にお問い合わせください。
+      </div>
+    </section>
+
+    <!-- プロンプトの修正方法 -->
+    <section class="section" id="prompt-guide">
+      <h2>📝 プロンプトの修正方法</h2>
+
+      <h3>プロンプトとは？</h3>
+      <p>プロンプトとは、AIに対する<strong>「指示書」</strong>のことです。この指示書に書かれた内容にしたがって、AIがPDF発注書を読み取ります。</p>
+      <p>指示書を工夫することで、AIの読み取り精度を上げることができます。たとえば「発注番号は右上に書いてある」と教えてあげると、AIがより正確に読み取れるようになります。</p>
+
+      <div class="alert alert-info">
+        <strong>💡 プロンプトの保存場所</strong>
+        スプレッドシートの「プロンプト」シート → <strong>A1セル</strong> に書かれています。この1つのセルだけがAIへの指示書です。
+      </div>
+
+      <h3>プロンプトの開き方</h3>
+
+      <div class="steps">
+        <div class="step" data-step="1">
+          <h4>スプレッドシートを開く</h4>
+          <p>データが保存されているGoogleスプレッドシートを開きます。</p>
+        </div>
+
+        <div class="step" data-step="2">
+          <h4>「プロンプト」シートを選択</h4>
+          <p>画面下部のシートタブから<strong>「プロンプト」</strong>をクリックします。「OrderData」シートではありませんのでご注意ください。</p>
+        </div>
+
+        <div class="step" data-step="3">
+          <h4>A1セルを確認</h4>
+          <p>左上の<strong>A1セル</strong>に、現在のプロンプト（AIへの指示書）が表示されています。このセルの内容を編集します。</p>
+        </div>
+      </div>
+
+      <h3>変えてはいけない部分</h3>
+      <p>以下の部分を変更すると、<strong>システムが正常に動かなくなります</strong>。十分ご注意ください。</p>
+
+      <div class="alert alert-warning">
+        <strong>⚠️ ルール1：英語のキー名は絶対に変えない</strong>
+        プロンプト内の以下の英語の単語は、システムが内部で使用している「合言葉」です。1文字でも変えると、データが正しく保存されなくなります。
+        <ul style="margin-top: 8px;">
+          <li><code>order_number</code>（発注番号）</li>
+          <li><code>order_date</code>（発注日）</li>
+          <li><code>maker_name</code>（メーカー名）</li>
+          <li><code>shop_name</code>（店舗名）</li>
+          <li><code>delivery_destination</code>（納品先）</li>
+          <li><code>items</code>（商品明細）</li>
+          <li><code>product_code</code>（品番）</li>
+          <li><code>product_name</code>（商品名）</li>
+          <li><code>quantity</code>（数量）</li>
+          <li><code>unit_price</code>（単価）</li>
+          <li><code>page_number</code>（ページ番号）</li>
+        </ul>
+      </div>
+
+      <div class="alert alert-warning">
+        <strong>⚠️ ルール2：「JSON形式で」という指示は消さない</strong>
+        プロンプトの最初にある「JSON形式で抽出してください」という指示は、AIに決まった形式でデータを返させるために必要です。この指示がないと、AIが自由な文章でデータを返してしまい、システムが読み取れなくなります。
+      </div>
+
+      <div class="alert alert-warning">
+        <strong>⚠️ ルール3：items の中の5項目を消さない</strong>
+        <code>items</code>（商品明細）の下にある <code>product_code</code>、<code>product_name</code>、<code>quantity</code>、<code>unit_price</code>、<code>page_number</code> の5つは、商品データの保存に必要な項目です。これらを削除しないでください。
+      </div>
+
+      <div class="alert alert-warning">
+        <strong>⚠️ ルール4：A1セルだけに書く</strong>
+        プロンプトは必ず<strong>A1セルの中だけ</strong>に書いてください。B1セルやA2セルに分割して書いても、システムはA1セルしか読みません。長い文章でもA1セル内に書いてください（セル内で改行するには <code>Ctrl + Enter</code> を使います）。
+      </div>
+
+      <h3>安全に変更できる部分</h3>
+
+      <div class="alert alert-success">
+        <strong>✅ 以下の変更は安全です</strong>
+        <ul style="margin-top: 8px;">
+          <li><strong>日本語の説明を変える</strong>：「発注番号/発注No/注文番号」→「発注番号（右上に記載）」</li>
+          <li><strong>補足の指示を追加する</strong>：「日付が和暦の場合は西暦に変換してください」</li>
+          <li><strong>企業ごとの特徴を追記する</strong>：「A社の場合は〜」（詳しくは次の項目を参照）</li>
+          <li><strong>読み取りのヒントを追加する</strong>：「表の2行目以降が商品明細です」</li>
+        </ul>
+      </div>
+
+      <h3>企業ごとの特色を追加する方法</h3>
+      <p>取引先の企業ごとにPDFのレイアウトや書き方が異なる場合、その特徴をプロンプトに書き加えることで、AIの読み取り精度が向上します。</p>
+      <p>プロンプトの末尾（最後の行の下）に、以下のように企業ごとの特徴を追記してください：</p>
+
+      <div class="ui-demo">
+        <div class="demo-header">記入例：企業ごとの特色</div>
+        <pre style="background: #f8f9fa; padding: 16px; border-radius: 4px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-x: auto;">【A社の発注書の特徴】
+- 発注番号は右上の「PO-XXXX」形式で記載されています
+- 単価は税込み価格です。税抜きに変換してください（÷1.1）
+- メーカー名は「A社」と記入してください
+
+【B社の発注書の特徴】
+- 発注番号は「注文No:」の後に記載されています
+- 商品コードは「B-」で始まる5桁のコードです
+- 1ページに複数の注文表が載っている場合があります
+
+【C社の発注書の特徴】
+- 日付が和暦（令和○年）で記載されています。西暦に変換してください
+- 品番の列がない場合は、空欄のままにしてください</pre>
+      </div>
+
+      <div class="alert alert-info">
+        <strong>💡 ポイント</strong>
+        <ul style="margin-top: 8px;">
+          <li>【】で企業名を囲むと、AIが企業ごとの指示を区別しやすくなります</li>
+          <li>箇条書き（- で始める）にすると読みやすくなります</li>
+          <li>企業の特徴が増えてきたら、特に重要なポイントだけに絞りましょう。指示が多すぎるとAIが混乱する場合があります</li>
+        </ul>
+      </div>
+
+      <h3>修正の手順（チェックリスト）</h3>
+
+      <div class="steps">
+        <div class="step" data-step="1">
+          <h4>バックアップをとる</h4>
+          <p>修正前のプロンプトを<strong>必ずコピー</strong>して、別の場所（メモ帳やスプレッドシートの別シートなど）に保存しておきます。万が一うまくいかなかったときに、元に戻すために必要です。</p>
+        </div>
+
+        <div class="step" data-step="2">
+          <h4>A1セルを修正する</h4>
+          <p>「プロンプト」シートのA1セルを編集します。セル内で改行するには <strong>Ctrl + Enter</strong>（Macは Cmd + Enter）を押してください。</p>
+        </div>
+
+        <div class="step" data-step="3">
+          <h4>英語キー名が残っているか確認</h4>
+          <p>修正後、以下の11個の英語の単語がすべてプロンプト内に残っていることを確認してください：</p>
+          <p style="font-size: 13px; color: #555; margin-top: 8px; line-height: 2;">
+            <code>order_number</code> <code>order_date</code> <code>maker_name</code> <code>shop_name</code> <code>delivery_destination</code> <code>items</code> <code>product_code</code> <code>product_name</code> <code>quantity</code> <code>unit_price</code> <code>page_number</code>
+          </p>
+        </div>
+
+        <div class="step" data-step="4">
+          <h4>テスト処理で確認する</h4>
+          <p>修正後は必ずテスト処理を実行して、正しく読み取れるか確認してください。テスト方法は次の項目を参照してください。</p>
+        </div>
+
+        <div class="step" data-step="5">
+          <h4>問題があれば元に戻す</h4>
+          <p>テスト結果がおかしい場合は、ステップ1で保存したバックアップをA1セルに貼り付けて元に戻してください。</p>
+        </div>
+      </div>
+
+      <h3>テスト方法</h3>
+      <p>プロンプトを修正した後は、以下の手順でテストしてください。</p>
+
+      <div class="steps">
+        <div class="step" data-step="1">
+          <h4>Apps Scriptエディタを開く</h4>
+          <p>Google Apps Scriptのエディタ画面を開きます。（わからない場合はシステム管理者に確認してください）</p>
+        </div>
+
+        <div class="step" data-step="2">
+          <h4>テスト関数を実行</h4>
+          <p>エディタ上部の関数選択ドロップダウンから <strong>debugOcrWithDetailedLog</strong> を選び、「実行」ボタンをクリックします。</p>
+        </div>
+
+        <div class="step" data-step="3">
+          <h4>結果を確認</h4>
+          <p>画面下部の「実行ログ」に結果が表示されます。以下を確認してください：</p>
+          <ul>
+            <li>「プロンプト内容」に修正した内容が正しく表示されているか</li>
+            <li>「基本情報」の発注日、メーカー名などが正しく読み取れているか</li>
+            <li>「商品明細」の品番、商品名、数量、単価が正しいか</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="alert alert-info">
+        <strong>💡 テスト処理は安全です</strong>
+        テスト処理（debugOcrWithDetailedLog）は読み取り結果をログに表示するだけで、スプレッドシートのデータを変更しません。安心して何度でも実行できます。
+      </div>
+
+      <h3>うまくいかないとき</h3>
+
+      <h4>Q. データが全く保存されなくなった</h4>
+      <p><strong>A.</strong> 英語のキー名を変えてしまった可能性があります。バックアップからプロンプトを復元してください。復元後、もう一度テスト処理で確認してください。</p>
+
+      <h4>Q. 一部の項目（発注日など）だけ空になった</h4>
+      <p><strong>A.</strong> その項目に対応する英語キー名が消えているか変わっている可能性があります。例えば <code>order_date</code> が消えていると発注日が取得できません。プロンプト内のキー名を確認してください。</p>
+
+      <h4>Q. 「JSON形式で」を消してしまった</h4>
+      <p><strong>A.</strong> プロンプトの最初の行に「以下のPDF発注書から以下の情報を<strong>JSON形式で</strong>抽出してください」を書き戻してください。</p>
+
+      <h4>Q. プロンプトをA2セルやB1セルに書いてしまった</h4>
+      <p><strong>A.</strong> A2やB1セルの内容は読み込まれません。すべての内容をA1セルに移してください。セル内で改行するには Ctrl + Enter を使います。</p>
+
+      <h4>Q. プロンプトの文章を長くしたら、読み取りが遅くなった</h4>
+      <p><strong>A.</strong> プロンプトが長くなると処理時間が少し増える場合がありますが、通常は大きな影響はありません。企業の特徴を書く際は、重要なポイントに絞ると効率的です。</p>
+
+      <div class="alert alert-info">
+        <strong>💬 困ったときは</strong>
+        プロンプトの修正でわからないことがあれば、システム管理者にお問い合わせください。バックアップさえあれば、いつでも元に戻せますので安心して修正をお試しください。
       </div>
     </section>
 
