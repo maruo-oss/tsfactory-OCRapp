@@ -89,7 +89,14 @@
     .detail-table td { padding: 8px 12px; border-bottom: 1px solid #f1f1f1; vertical-align: middle; }
     .detail-table tr:hover { background-color: #f8f9fa; }
     .num { text-align: right; }
-    
+
+    /* Page Tabs */
+    .page-tabs { display: flex; gap: 0; padding: 0 20px; border-bottom: 2px solid #e0e0e0; background: #f8f9fa; }
+    .page-tab { padding: 8px 16px; font-size: 13px; font-weight: bold; color: #5f6368; background: transparent; border: none; border-bottom: 3px solid transparent; cursor: pointer; transition: 0.2s; margin-bottom: -2px; }
+    .page-tab:hover { color: #1a73e8; background: #e8f0fe; }
+    .page-tab.active { color: #1a73e8; border-bottom-color: #1a73e8; background: #fff; }
+    .page-tabs-hidden { display: none; }
+
     /* Preview Pane (Right) */
     .preview-pane { width: 35%; background: #202124; display: flex; flex-direction: column; border-left: 1px solid #ddd; }
     .preview-header { padding: 10px; background: #3c4043; color: #fff; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
@@ -227,6 +234,7 @@
 
         <div class="detail-section-bottom">
           <h3>商品明細</h3>
+          <div id="pageTabs" class="page-tabs page-tabs-hidden"></div>
           <div class="table-wrapper">
             <table class="detail-table">
               <thead>
@@ -264,6 +272,7 @@
   let rawData = [];
   let groupedFiles = [];
   let currentFileGroup = null;
+  let activePageTab = 'all';
 
   // --- 初期化 ---
   document.addEventListener('DOMContentLoaded', () => {
@@ -510,6 +519,39 @@
         document.getElementById('viewStatus').value = fileGroup.status || '未処理';
         document.getElementById('viewComment').value = fileGroup.comment || '';
 
+        // ページタブの構築
+        const pageNumbers = [...new Set((fileGroup.items || []).map(item => item.page_number || 1))].sort((a, b) => a - b);
+        const tabContainer = document.getElementById('pageTabs');
+        tabContainer.innerHTML = '';
+
+        if (pageNumbers.length <= 1) {
+          tabContainer.classList.add('page-tabs-hidden');
+          activePageTab = 'all';
+        } else {
+          tabContainer.classList.remove('page-tabs-hidden');
+
+          // 「全ページ」タブ
+          const allTab = document.createElement('button');
+          allTab.className = 'page-tab' + (activePageTab === 'all' ? ' active' : '');
+          allTab.textContent = '全ページ';
+          allTab.onclick = () => switchPageTab('all');
+          tabContainer.appendChild(allTab);
+
+          // 各ページタブ
+          pageNumbers.forEach(pageNum => {
+            const tab = document.createElement('button');
+            tab.className = 'page-tab' + (activePageTab === pageNum ? ' active' : '');
+            tab.textContent = 'ページ' + pageNum;
+            tab.onclick = () => switchPageTab(pageNum);
+            tabContainer.appendChild(tab);
+          });
+
+          // 現在のactivePageTabが新ファイルに存在しない場合リセット
+          if (activePageTab !== 'all' && !pageNumbers.includes(activePageTab)) {
+            activePageTab = 'all';
+          }
+        }
+
         const tbody = document.getElementById('detailTableBody');
         tbody.innerHTML = '';
 
@@ -525,6 +567,7 @@
            fileGroup.items.forEach((item, index) => {
               const tr = document.createElement('tr');
               tr.dataset.key = item.uniqueKey;
+              tr.dataset.page = item.page_number || 1;
 
               const price = Number(item.price) || 0;
               const qty = Number(item.qty) || 0;
@@ -593,6 +636,7 @@
            });
         }
 
+        applyPageFilter();
         updatePdfPreview(fileGroup.fileId);
         
     } catch(e) {
@@ -623,6 +667,42 @@
       container.appendChild(noPreviewDiv);
       link.style.display = 'none';
     }
+  }
+
+  // --- ページタブ切替 ---
+  function switchPageTab(page) {
+    activePageTab = page;
+
+    document.querySelectorAll('#pageTabs .page-tab').forEach(tab => {
+      tab.classList.remove('active');
+    });
+    document.querySelectorAll('#pageTabs .page-tab').forEach(tab => {
+      if (page === 'all' && tab.textContent === '全ページ') {
+        tab.classList.add('active');
+      } else if (tab.textContent === 'ページ' + page) {
+        tab.classList.add('active');
+      }
+    });
+
+    applyPageFilter();
+  }
+
+  function applyPageFilter() {
+    const rows = document.querySelectorAll('#detailTableBody tr[data-page]');
+    let visibleIndex = 0;
+
+    rows.forEach(tr => {
+      const rowPage = parseInt(tr.dataset.page, 10);
+
+      if (activePageTab === 'all' || rowPage === activePageTab) {
+        tr.style.display = '';
+        visibleIndex++;
+        const noCell = tr.querySelector('td:first-child');
+        if (noCell) noCell.textContent = visibleIndex;
+      } else {
+        tr.style.display = 'none';
+      }
+    });
   }
 
   // --- 4. 編集機能 ---
@@ -692,6 +772,7 @@
 
     const rows = document.querySelectorAll('#detailTableBody tr');
     rows.forEach(tr => {
+      if (!tr.dataset.key) return;
       const key = tr.dataset.key;
       const inputs = tr.querySelectorAll('input');
 
@@ -708,7 +789,8 @@
         p_code: inputs[0].value,
         p_name: inputs[1].value,
         price: inputs[2].value,
-        qty: inputs[3].value
+        qty: inputs[3].value,
+        page_number: parseInt(tr.dataset.page, 10) || 1
       });
     });
 

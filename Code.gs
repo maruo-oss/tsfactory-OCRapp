@@ -81,7 +81,8 @@ function processSingleFile(file, branchName, targetBranchFolder, ssId, apiKey, p
       quantity: safeParseFloat(item.quantity),
       unit_price: safeParseFloat(item.unit_price),
       processed_at: new Date(),
-      item_order: index + 1
+      item_order: index + 1,
+      page_number: parseInt(item.page_number, 10) || 1
     }));
 
     records.forEach(r => r.line_total = r.quantity * r.unit_price);
@@ -133,7 +134,7 @@ function saveToSpreadsheet(ssId, records) {
     const headers = ['branch_name', 'file_id', 'file_name', 'status', 'order_date',
                     'maker_name', 'shop_name', 'product_code', 'product_name',
                     'unit_price', 'quantity', 'line_total', 'processed_at',
-                    'delivery_destination', 'order_number', 'comment', 'item_order'];
+                    'delivery_destination', 'order_number', 'comment', 'item_order', 'page_number'];
     sheet.appendRow(headers);
     sheet.setFrozenRows(1);
   }
@@ -141,7 +142,7 @@ function saveToSpreadsheet(ssId, records) {
     r.branch_name, r.file_id, r.file_name, r.status,
     r.order_date, r.maker_name, r.shop_name,
     r.product_code, r.product_name, r.unit_price, r.quantity, r.line_total, r.processed_at,
-    r.delivery_destination, r.order_number || '', r.comment || '', r.item_order || 0
+    r.delivery_destination, r.order_number || '', r.comment || '', r.item_order || 0, r.page_number || 1
   ]);
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
 }
@@ -170,7 +171,7 @@ function getDataFromSpreadsheet() {
     const MAX_ROWS = 500;
     const startRow = Math.max(2, lastRow - MAX_ROWS + 1);
     const numRows = lastRow - startRow + 1;
-    const data = sheet.getRange(startRow, 1, numRows, 17).getValues();
+    const data = sheet.getRange(startRow, 1, numRows, 18).getValues();
     
     const formattedData = data.map((row, index) => {
       try {
@@ -210,7 +211,8 @@ function getDataFromSpreadsheet() {
           total: toNum(row[11]),
           order_number: String(row[14] || ""),
           comment: String(row[15] || ""),
-          item_order: toNum(row[16])
+          item_order: toNum(row[16]),
+          page_number: toNum(row[17]) || 1
         };
       } catch (rowErr) {
         return { uniqueKey: 'error_' + index, branch: 'データ破損', items: [] };
@@ -318,6 +320,11 @@ function updateOrderData(updates) {
     sheet.getRange(rowNum, 10).setValue(update.price);
     sheet.getRange(rowNum, 11).setValue(update.qty);
     sheet.getRange(rowNum, 12).setFormula(`=J${rowNum}*K${rowNum}`);
+
+    // page_number更新（R列 = 18列目）
+    if (update.page_number !== undefined) {
+      sheet.getRange(rowNum, 18).setValue(update.page_number);
+    }
   });
   return "保存しました";
 }
@@ -591,7 +598,8 @@ function debugSchemaCheck() {
       'delivery_destination',
       'order_number',
       'comment',
-      'item_order'
+      'item_order',
+      'page_number'
     ];
 
     console.log('\n--- V2スキーマとの比較 ---');
@@ -612,10 +620,10 @@ function debugSchemaCheck() {
     }
 
     console.log('\n========================================');
-    if (hasError || lastColumn < 17) {
+    if (hasError || lastColumn < 18) {
       console.warn('【結果】スキーマが一致しません');
-      console.warn(`現在: ${lastColumn}列, 必要: 17列\n`);
-      console.warn('👉 migrateToV2Schema() を実行してください');
+      console.warn(`現在: ${lastColumn}列, 必要: 18列\n`);
+      console.warn('👉 migrateToV3Schema() を実行してください');
     } else {
       console.log('【結果】✓ V2スキーマと一致しています');
     }
@@ -726,6 +734,57 @@ function migrateToV2Schema() {
     console.log('✓ order_number, comment, item_order を追加しました');
 
     return `マイグレーション完了: ${lastRow - 1}行`;
+
+  } catch (e) {
+    console.error(`マイグレーションエラー: ${e.message}`);
+    throw e;
+  }
+}
+
+/**
+ * 既存データをV3スキーマ（18列）にマイグレーション
+ * page_number列を追加（デフォルト値: 1）
+ * ※初回デプロイ時に1度だけ実行
+ */
+function migrateToV3Schema() {
+  console.log('========================================');
+  console.log('【マイグレーション開始】V2 → V3スキーマ (page_number追加)');
+  console.log('========================================\n');
+
+  try {
+    const ss = SpreadsheetApp.openById(PROPS.getProperty('SPREADSHEET_ID'));
+    const sheet = ss.getSheetByName(SHEET_NAME);
+    const lastRow = sheet.getLastRow();
+    const lastColumn = sheet.getLastColumn();
+
+    if (lastColumn >= 18) {
+      console.log('既にマイグレーション済み（18列以上）');
+      return "既にマイグレーション済み";
+    }
+
+    if (lastRow <= 1) {
+      sheet.getRange(1, 18).setValue('page_number');
+      console.log('✓ R列 (18): page_number ヘッダー追加（データなし）');
+      return "ヘッダーのみ追加";
+    }
+
+    // R列（18列目）: page_number ヘッダー追加
+    sheet.getRange(1, 18).setValue('page_number');
+    console.log('✓ R列 (18): page_number 追加');
+
+    // 既存データに初期値 1 を一括設定
+    const numRows = lastRow - 1;
+    const defaultValues = Array(numRows).fill([1]);
+    sheet.getRange(2, 18, numRows, 1).setValues(defaultValues);
+    console.log(`✓ ${numRows}行にデフォルト値 page_number=1 を設定`);
+
+    console.log('\n========================================');
+    console.log('【マイグレーション完了】V2 → V3');
+    console.log('========================================');
+    console.log(`処理行数: ${numRows}行`);
+    console.log(`列数: 17列 → 18列`);
+
+    return `マイグレーション完了: ${numRows}行`;
 
   } catch (e) {
     console.error(`マイグレーションエラー: ${e.message}`);
