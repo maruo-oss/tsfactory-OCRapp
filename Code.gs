@@ -57,37 +57,82 @@ function processOrders() {
   return totalProcessedCount;
 }
 
-// --- 個別ファイル処理 ---
+// --- PDFの総ページ数を取得（Gemini Flash使用） ---
+function getPageCount(file, apiKey) {
+  const MODEL_NAME = 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+  const blob = file.getBlob();
+  const base64Data = Utilities.base64Encode(blob.getBytes());
+  const payload = {
+    contents: [{ parts: [
+      { text: 'このPDFの総ページ数を数字のみで回答してください。例: 3' },
+      { inline_data: { mime_type: blob.getContentType(), data: base64Data } }
+    ] }]
+  };
+  const options = { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true };
+  try {
+    const response = UrlFetchApp.fetch(url, options);
+    const json = JSON.parse(response.getContentText());
+    if (response.getResponseCode() !== 200) throw new Error(json.error.message);
+    const text = json.candidates[0].content.parts[0].text.trim();
+    const pageCount = parseInt(text, 10);
+    console.log(`[ページ数取得] ${file.getName()}: ${pageCount}ページ`);
+    return isNaN(pageCount) || pageCount < 1 ? 1 : pageCount;
+  } catch (e) {
+    console.warn(`[ページ数取得失敗] ${file.getName()}: ${e.message} → 1ページとして処理`);
+    return 1;
+  }
+}
+
+// --- 個別ファイル処理（ページごとにAPI呼び出し） ---
 function processSingleFile(file, branchName, targetBranchFolder, ssId, apiKey, promptText) {
   const fileName = file.getName();
   try {
-    const extractedData = callGeminiApi(file, apiKey, promptText);
-    const items = (extractedData.items && extractedData.items.length > 0) 
-                  ? extractedData.items 
-                  : [{ product_code: "", product_name: "(明細なし)", quantity: 0, unit_price: 0 }];
+    const totalPages = getPageCount(file, apiKey);
+    const allRecords = [];
+    let globalItemOrder = 1;
 
-    const records = items.map((item, index) => ({
-      file_id: file.getId(),
-      branch_name: branchName,
-      file_name: fileName,
-      status: '未処理',
-      order_date: extractedData.order_date || '',
-      order_number: extractedData.order_number || '',
-      maker_name: extractedData.maker_name || '',
-      shop_name: extractedData.shop_name || '',
-      delivery_destination: extractedData.delivery_destination || '',
-      product_code: item.product_code || '',
-      product_name: item.product_name || '',
-      quantity: safeParseFloat(item.quantity),
-      unit_price: safeParseFloat(item.unit_price),
-      processed_at: new Date(),
-      item_order: index + 1,
-      page_number: parseInt(item.page_number, 10) || 1
-    }));
+    for (let page = 1; page <= totalPages; page++) {
+      console.log(`[OCR] ${fileName} - ページ ${page}/${totalPages} 処理中...`);
 
-    records.forEach(r => r.line_total = r.quantity * r.unit_price);
-    saveToSpreadsheet(ssId, records);
+      // ページ指定のプロンプトを生成
+      const pagePrompt = totalPages === 1
+        ? promptText
+        : `【重要】このPDFは${totalPages}ページありますが、${page}ページ目の内容のみを対象に読み取ってください。他のページの内容は絶対に含めないでください。\n\n${promptText}`;
+
+      const extractedData = callGeminiApi(file, apiKey, pagePrompt);
+      const items = (extractedData.items && extractedData.items.length > 0)
+                    ? extractedData.items
+                    : (page === 1 ? [{ product_code: "", product_name: "(明細なし)", quantity: 0, unit_price: 0 }] : []);
+
+      const records = items.map(item => ({
+        file_id: file.getId(),
+        branch_name: branchName,
+        file_name: fileName,
+        status: '未処理',
+        order_date: extractedData.order_date || '',
+        order_number: extractedData.order_number || '',
+        maker_name: extractedData.maker_name || '',
+        shop_name: extractedData.shop_name || '',
+        delivery_destination: extractedData.delivery_destination || '',
+        product_code: item.product_code || '',
+        product_name: item.product_name || '',
+        quantity: safeParseFloat(item.quantity),
+        unit_price: safeParseFloat(item.unit_price),
+        processed_at: new Date(),
+        item_order: globalItemOrder++,
+        page_number: page  // プログラム的にページ番号を付与
+      }));
+
+      records.forEach(r => r.line_total = r.quantity * r.unit_price);
+      allRecords.push(...records);
+    }
+
+    if (allRecords.length > 0) {
+      saveToSpreadsheet(ssId, allRecords);
+    }
     file.moveTo(targetBranchFolder);
+    console.log(`[完了] ${fileName}: ${allRecords.length}件（${totalPages}ページ）`);
   } catch (e) {
     console.error(`エラー ${fileName}: ${e.message}`);
     file.setName(`【ERROR】${fileName}`);
@@ -483,56 +528,69 @@ function debugOcrWithDetailedLog() {
     console.log(`ファイルID: ${file.getId()}`);
     console.log(`ファイルサイズ: ${(file.getSize() / 1024).toFixed(2)} KB\n`);
 
-    console.log('Gemini API呼び出し中...\n');
+    // 4-1. ページ数取得
+    console.log('--- ステップ4-1: ページ数取得 (Gemini Flash) ---');
+    const totalPages = getPageCount(file, apiKey);
+    console.log(`✓ 総ページ数: ${totalPages}\n`);
 
-    const startTime = new Date();
-    const extractedData = callGeminiApi(file, apiKey, geminiPrompt);
-    const endTime = new Date();
-    const elapsedTime = ((endTime - startTime) / 1000).toFixed(2);
+    // 4-2. ページごとにOCR実行
+    let totalItemCount = 0;
+    const overallStartTime = new Date();
 
-    console.log(`✓ API応答成功（処理時間: ${elapsedTime}秒）\n`);
+    for (let page = 1; page <= totalPages; page++) {
+      console.log('========================================');
+      console.log(`--- ステップ5: ページ ${page}/${totalPages} のOCR処理 ---`);
+      console.log('========================================\n');
 
-    // 5. 抽出結果の詳細出力
-    console.log('========================================');
-    console.log('--- ステップ5: 抽出結果 ---');
-    console.log('========================================\n');
+      const pagePrompt = totalPages === 1
+        ? geminiPrompt
+        : `【重要】このPDFは${totalPages}ページありますが、${page}ページ目の内容のみを対象に読み取ってください。他のページの内容は絶対に含めないでください。\n\n${geminiPrompt}`;
 
-    console.log('【基本情報】');
-    console.log(`  発注日: ${extractedData.order_date || '(なし)'}`);
-    console.log(`  発注番号: ${extractedData.order_number || '(なし)'}`);
-    console.log(`  メーカー名: ${extractedData.maker_name || '(なし)'}`);
-    console.log(`  店舗名: ${extractedData.shop_name || '(なし)'}`);
-    console.log(`  納品先: ${extractedData.delivery_destination || '(なし)'}\n`);
+      console.log('Gemini API呼び出し中...\n');
+      const startTime = new Date();
+      const extractedData = callGeminiApi(file, apiKey, pagePrompt);
+      const endTime = new Date();
+      const elapsedTime = ((endTime - startTime) / 1000).toFixed(2);
+      console.log(`✓ API応答成功（処理時間: ${elapsedTime}秒）\n`);
 
-    console.log('【商品明細】');
-    if (extractedData.items && extractedData.items.length > 0) {
-      console.log(`  明細数: ${extractedData.items.length}件\n`);
+      console.log('【基本情報】');
+      console.log(`  発注日: ${extractedData.order_date || '(なし)'}`);
+      console.log(`  発注番号: ${extractedData.order_number || '(なし)'}`);
+      console.log(`  メーカー名: ${extractedData.maker_name || '(なし)'}`);
+      console.log(`  店舗名: ${extractedData.shop_name || '(なし)'}`);
+      console.log(`  納品先: ${extractedData.delivery_destination || '(なし)'}\n`);
 
-      extractedData.items.forEach((item, index) => {
-        console.log(`  [${index + 1}] 品番: ${item.product_code || '(なし)'}`);
-        console.log(`      商品名: ${item.product_name || '(なし)'}`);
-        console.log(`      数量: ${item.quantity || 0}`);
-        console.log(`      単価: ${item.unit_price || 0}`);
-        console.log(`      小計: ${(safeParseFloat(item.quantity) * safeParseFloat(item.unit_price)).toLocaleString()}円\n`);
-      });
-    } else {
-      console.log('  ⚠️ 商品明細なし\n');
+      console.log(`【商品明細 - ページ${page}】`);
+      if (extractedData.items && extractedData.items.length > 0) {
+        console.log(`  明細数: ${extractedData.items.length}件\n`);
+        totalItemCount += extractedData.items.length;
+
+        extractedData.items.forEach((item, index) => {
+          console.log(`  [${index + 1}] 品番: ${item.product_code || '(なし)'}`);
+          console.log(`      商品名: ${item.product_name || '(なし)'}`);
+          console.log(`      数量: ${item.quantity || 0}`);
+          console.log(`      単価: ${item.unit_price || 0}`);
+          console.log(`      小計: ${(safeParseFloat(item.quantity) * safeParseFloat(item.unit_price)).toLocaleString()}円\n`);
+        });
+      } else {
+        console.log('  ⚠️ 商品明細なし\n');
+      }
+
+      console.log(`--- 生JSONデータ（ページ${page}） ---`);
+      console.log(JSON.stringify(extractedData, null, 2));
+      console.log('\n');
     }
 
-    // 6. JSON全体の出力
-    console.log('========================================');
-    console.log('--- ステップ6: 生JSONデータ ---');
-    console.log('========================================');
-    console.log(JSON.stringify(extractedData, null, 2));
-    console.log('\n');
+    const overallElapsed = ((new Date() - overallStartTime) / 1000).toFixed(2);
 
-    // 7. まとめ
+    // まとめ
     console.log('========================================');
     console.log('【診断完了】');
     console.log('========================================');
     console.log(`✓ フォルダ構造: OK（拠点数: ${totalBranchCount}, PDF数: ${totalPdfCount}）`);
-    console.log(`✓ API呼び出し: OK（処理時間: ${elapsedTime}秒）`);
-    console.log(`✓ データ抽出: OK（明細数: ${extractedData.items ? extractedData.items.length : 0}件）\n`);
+    console.log(`✓ ページ数: ${totalPages}ページ`);
+    console.log(`✓ API呼び出し: OK（総処理時間: ${overallElapsed}秒）`);
+    console.log(`✓ データ抽出: OK（総明細数: ${totalItemCount}件）\n`);
 
     console.log('※ 実際の処理を実行するには processOrders() を実行してください');
 
