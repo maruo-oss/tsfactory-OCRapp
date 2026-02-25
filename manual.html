@@ -349,7 +349,7 @@
   <!-- Header -->
   <div class="manual-header">
     <h1>📖 AI-OCR 発注管理システム 取扱説明書</h1>
-    <span class="version-badge">V2.0</span>
+    <span class="version-badge">V3.0</span>
   </div>
 
   <!-- Main Content -->
@@ -416,6 +416,12 @@
         </div>
 
         <div class="feature-card">
+          <span class="feature-icon">📄</span>
+          <div class="feature-title">ページタブ</div>
+          <div class="feature-desc">複数ページのPDF発注書を、ページごとにタブで切り替えて確認できます。</div>
+        </div>
+
+        <div class="feature-card">
           <span class="feature-icon">📥</span>
           <div class="feature-title">Excel出力</div>
           <div class="feature-desc">選択した発注書をまとめてExcelファイルとして出力できます。</div>
@@ -453,6 +459,7 @@
           <li>発注日、発注番号、ステータス</li>
           <li>ファイル名、備考</li>
           <li>商品明細（品番、商品名、単価、数量、小計）</li>
+          <li>ページタブ（複数ページPDFの場合、ページ別に商品明細を切り替え表示）</li>
         </ul>
       </div>
 
@@ -502,6 +509,7 @@
         <div class="step" data-step="3">
           <h4>データを確認</h4>
           <p>左側の一覧から発注書を選択し、中央ペインでデータを確認します。右側のPDFプレビューで原本と照合できます。</p>
+          <p style="font-size: 13px; color: #666; margin-top: 8px;">複数ページのPDFの場合は、商品明細の上にページタブが表示されます。タブをクリックしてページ別に確認できます。</p>
         </div>
 
         <div class="step" data-step="4">
@@ -603,6 +611,18 @@
       <h3>ファイル名の編集</h3>
       <p>一覧に表示されるファイル名を変更できます。わかりやすい名前に変更すると管理しやすくなります。</p>
 
+      <h3>ページタブ（複数ページPDF対応）</h3>
+      <p>複数ページのPDF発注書を取り込むと、商品明細の上にページタブが自動的に表示されます。</p>
+      <ul>
+        <li><strong>全ページ</strong>：すべてのページの商品を一覧表示</li>
+        <li><strong>ページ1、ページ2...</strong>：各ページの商品のみを表示</li>
+      </ul>
+      <p>タブをクリックするだけで、PDFプレビューのページに対応した商品明細を確認できます。</p>
+      <div class="alert alert-info">
+        <strong>💡 ヒント</strong>
+        単一ページのPDFではタブは表示されず、従来通りの表示になります。
+      </div>
+
       <h3>PDFを別タブで開く</h3>
       <p>右ペインのPDFプレビュー上部にある「別タブで開く ↗」リンクをクリックすると、PDFを別タブで大きく表示できます。</p>
     </section>
@@ -657,7 +677,7 @@
 
   <!-- Footer -->
   <div class="manual-footer">
-    <p><strong>AI-OCR 発注管理システム V2.0</strong></p>
+    <p><strong>AI-OCR 発注管理システム V3.0</strong></p>
     <p style="margin-top: 8px; font-size: 13px;">
       このマニュアルは、システムを使用する方向けの基本操作ガイドです。<br>
       技術的な設定については、システム管理者にお問い合わせください。
