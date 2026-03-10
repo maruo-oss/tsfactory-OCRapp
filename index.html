@@ -5,14 +5,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI-OCR 発注管理システム</title>
-  
+
   <style>
     /* --- CSS Styles --- */
     * { box-sizing: border-box; }
     body, html { margin: 0; padding: 0; height: 100%; font-family: "Helvetica Neue", Arial, sans-serif; color: #333; font-size: 14px; background-color: #f4f6f8; }
 
     .app-container { display: flex; flex-direction: column; height: 100vh; }
-    
+
     /* Header */
     .app-header { height: 56px; background: #fff; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #ddd; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.1); z-index: 10; }
     .app-header h1 { font-size: 18px; margin: 0; color: #1a73e8; font-weight: bold; }
@@ -34,12 +34,12 @@
 
     /* Main Layout */
     .main-content { display: flex; flex: 1; overflow: hidden; }
-    
+
     /* Sidebar (File List) */
-    .sidebar-list { width: 320px; border-right: 1px solid #ddd; background: #fff; display: flex; flex-direction: column; }
+    .sidebar-list { width: 320px; flex-shrink: 0; background: #fff; display: flex; flex-direction: column; }
     .sidebar-header { padding: 12px; background: #f8f9fa; border-bottom: 1px solid #ddd; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: space-between; }
     .list-container { flex: 1; overflow-y: auto; }
-    
+
     .file-item { padding: 12px; border-bottom: 1px solid #f1f1f1; cursor: pointer; display: flex; align-items: flex-start; transition: background 0.1s; }
     .file-item:hover { background: #f8f9fa; }
     .file-item.active { background: #e8f0fe; border-left: 4px solid #1a73e8; }
@@ -47,13 +47,13 @@
     .file-info { flex: 1; min-width: 0; }
     .file-shop { font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #202124; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .file-sub { font-size: 12px; color: #666; display: flex; justify-content: space-between; }
-    
+
     .badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; color: white; background: #666; margin-right: 6px; vertical-align: text-bottom; }
     .badge[data-branch="東京"] { background: #1a73e8; }
     .badge[data-branch="大阪"] { background: #d93025; }
 
     /* Editor Pane (Middle) */
-    .editor-pane { flex: 1; padding: 0; border-right: 1px solid #ddd; overflow: hidden; background: #fff; display: flex; flex-direction: column; min-width: 400px; }
+    .editor-pane { flex: 1; padding: 0; overflow: hidden; background: #fff; display: flex; flex-direction: column; min-width: 300px; }
     .editor-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f3f4; padding: 15px 20px; margin: 0; background: #fff; }
     .editor-header h2 { margin: 0; font-size: 18px; color: #202124; }
 
@@ -67,16 +67,22 @@
     .resizer-horizontal:active { background: #1557b0; }
     .resizer-horizontal::after { content: '⋮⋮⋮'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #9aa0a6; font-size: 10px; letter-spacing: 2px; pointer-events: none; }
 
+    /* Vertical Resizer */
+    .resizer-vertical { width: 8px; background: #f1f3f4; cursor: ew-resize; position: relative; z-index: 10; border-left: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; transition: background 0.2s; flex-shrink: 0; }
+    .resizer-vertical:hover { background: #1a73e8; }
+    .resizer-vertical:active { background: #1557b0; }
+    .resizer-vertical::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 2px; height: 30px; background: #9aa0a6; border-radius: 1px; pointer-events: none; }
+
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8f9fa; padding: 20px; margin: 20px; border-radius: 8px; }
 
     .detail-section-bottom h3 { margin: 15px 20px 10px 20px; font-size: 16px; color: #202124; }
     .info-item label { display: block; font-size: 12px; color: #5f6368; margin-bottom: 4px; font-weight: bold; }
-    
+
     /* Inputs */
     .form-input { width: 100%; padding: 8px; border: 1px solid #dadce0; border-radius: 4px; background: #fff; font-size: 14px; transition: 0.2s; }
     .form-input:focus { border-color: #1a73e8; outline: none; }
     .form-input.readonly { background: transparent; border: 1px solid transparent; padding: 0; font-weight: bold; color: #202124; pointer-events: none; }
-    
+
     .detail-input { width: 100%; padding: 6px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px; }
     .detail-input:focus { border-color: #1a73e8; outline: none; background: #fff; }
     .detail-input.readonly { background: transparent; border: none; padding: 6px 0; color: #333; pointer-events: none; }
@@ -98,12 +104,12 @@
     .page-tabs-hidden { display: none; }
 
     /* Preview Pane (Right) */
-    .preview-pane { width: 35%; background: #202124; display: flex; flex-direction: column; border-left: 1px solid #ddd; }
+    .preview-pane { width: 35%; flex-shrink: 0; background: #202124; display: flex; flex-direction: column; }
     .preview-header { padding: 10px; background: #3c4043; color: #fff; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
     .preview-content { flex: 1; position: relative; background: #5f6368; display: flex; justify-content: center; align-items: center; }
-    
+
     iframe { border: none; width: 100%; height: 100%; display: block; }
-    
+
     /* Utilities */
     .empty-state { text-align: center; color: #9aa0a6; padding: 40px; }
     .loading { text-align: center; padding: 20px; color: #666; font-style: italic; }
@@ -172,6 +178,8 @@
         </div>
       </aside>
 
+      <div class="resizer-vertical" id="verticalResizerLeft"></div>
+
       <main class="editor-pane">
         <div class="detail-section-top">
           <div class="editor-header">
@@ -205,10 +213,6 @@
               <input type="date" id="viewDate" readonly class="form-input readonly">
             </div>
             <div class="info-item">
-              <label>発注No</label>
-              <input type="text" id="viewOrderNumber" class="form-input readonly" readonly>
-            </div>
-            <div class="info-item">
               <label>ステータス</label>
               <select id="viewStatus" class="form-input readonly" disabled>
                 <option value="未処理">未処理</option>
@@ -240,20 +244,21 @@
               <thead>
                 <tr>
                   <th width="50px" style="text-align:center;">No.</th>
-                  <th width="15%">品番</th>
-                  <th>商品名</th>
-                  <th class="num" width="12%">単価</th>
+                  <th width="15%">発注No</th>
+                  <th width="20%">品番</th>
+                  <th>品名</th>
                   <th class="num" width="10%">数量</th>
-                  <th class="num" width="15%">小計</th>
                 </tr>
               </thead>
               <tbody id="detailTableBody">
-                <tr><td colspan="6" class="empty-state">左のリストから発注書を選択してください</td></tr>
+                <tr><td colspan="5" class="empty-state">左のリストから発注書を選択してください</td></tr>
               </tbody>
             </table>
           </div>
         </div>
       </main>
+
+      <div class="resizer-vertical" id="verticalResizerRight"></div>
 
       <aside class="preview-pane">
         <div class="preview-header">
@@ -320,12 +325,12 @@
     }
 
     rawData = data;
-    
+
     try {
       const groups = {};
       rawData.forEach(item => {
         const key = item.fileId ? item.fileId : (item.fileName + item.branch);
-        
+
         if (!groups[key]) {
           groups[key] = {
             groupKey: key,
@@ -356,7 +361,7 @@
 
       groupedFiles = Object.values(groups);
       filterList();
-      
+
       if (currentFileGroup) {
         const sameFile = groupedFiles.find(g => g.groupKey === currentFileGroup.groupKey);
         if (sameFile) {
@@ -366,7 +371,7 @@
           tbody.innerHTML = '';
           const emptyRow = document.createElement('tr');
           const emptyCell = document.createElement('td');
-          emptyCell.setAttribute('colspan', '6');
+          emptyCell.setAttribute('colspan', '5');
           emptyCell.className = 'empty-state';
           emptyCell.textContent = '選択したファイルが見つかりません';
           emptyRow.appendChild(emptyCell);
@@ -485,7 +490,7 @@
         }
 
         currentFileGroup = fileGroup;
-        hideEditControls(); 
+        hideEditControls();
 
         document.getElementById('editBtn').style.display = 'inline-block';
 
@@ -498,19 +503,16 @@
         setText('viewShop', fileGroup.shop);
         setText('viewDest', fileGroup.dest);
         setText('viewMaker', fileGroup.maker);
-        
+
         const dateEl = document.getElementById('viewDate');
         let dateVal = fileGroup.date || '';
         dateVal = dateVal.replace(/\//g, '-');
-        
+
         if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
             dateEl.value = dateVal;
         } else {
             dateEl.value = "";
         }
-
-        // 発注番号の設定
-        setText('viewOrderNumber', fileGroup.order_number || '');
 
         // ファイル名の設定
         setText('viewFileName', fileGroup.fileName || '');
@@ -558,7 +560,7 @@
         if (!fileGroup.items || fileGroup.items.length === 0) {
             const emptyRow = document.createElement('tr');
             const emptyCell = document.createElement('td');
-            emptyCell.setAttribute('colspan', '6');
+            emptyCell.setAttribute('colspan', '5');
             emptyCell.className = 'empty-state';
             emptyCell.textContent = '明細データがありません';
             emptyRow.appendChild(emptyCell);
@@ -569,9 +571,7 @@
               tr.dataset.key = item.uniqueKey;
               tr.dataset.page = item.page_number || 1;
 
-              const price = Number(item.price) || 0;
               const qty = Number(item.qty) || 0;
-              const total = Number(item.total) || (price * qty);
 
               // No.列
               const tdNo = document.createElement('td');
@@ -580,6 +580,16 @@
               tdNo.style.fontWeight = 'bold';
               tdNo.textContent = index + 1;
               tr.appendChild(tdNo);
+
+              // 発注No
+              const tdOrderNum = document.createElement('td');
+              const inputOrderNum = document.createElement('input');
+              inputOrderNum.type = 'text';
+              inputOrderNum.className = 'detail-input readonly';
+              inputOrderNum.value = item.order_number || '';
+              inputOrderNum.readOnly = true;
+              tdOrderNum.appendChild(inputOrderNum);
+              tr.appendChild(tdOrderNum);
 
               // 品番
               const tdCode = document.createElement('td');
@@ -591,7 +601,7 @@
               tdCode.appendChild(inputCode);
               tr.appendChild(tdCode);
 
-              // 商品名
+              // 品名
               const tdName = document.createElement('td');
               const inputName = document.createElement('input');
               inputName.type = 'text';
@@ -601,18 +611,6 @@
               tdName.appendChild(inputName);
               tr.appendChild(tdName);
 
-              // 単価
-              const tdPrice = document.createElement('td');
-              tdPrice.className = 'num';
-              const inputPrice = document.createElement('input');
-              inputPrice.type = 'number';
-              inputPrice.className = 'detail-input readonly num-input price';
-              inputPrice.value = price;
-              inputPrice.readOnly = true;
-              inputPrice.setAttribute('oninput', 'updateSubtotal(this)');
-              tdPrice.appendChild(inputPrice);
-              tr.appendChild(tdPrice);
-
               // 数量
               const tdQty = document.createElement('td');
               tdQty.className = 'num';
@@ -621,16 +619,8 @@
               inputQty.className = 'detail-input readonly num-input qty';
               inputQty.value = qty;
               inputQty.readOnly = true;
-              inputQty.setAttribute('oninput', 'updateSubtotal(this)');
               tdQty.appendChild(inputQty);
               tr.appendChild(tdQty);
-
-              // 小計
-              const tdTotal = document.createElement('td');
-              tdTotal.className = 'num subtotal';
-              tdTotal.style.fontWeight = 'bold';
-              tdTotal.textContent = total.toLocaleString();
-              tr.appendChild(tdTotal);
 
               tbody.appendChild(tr);
            });
@@ -638,7 +628,7 @@
 
         applyPageFilter();
         updatePdfPreview(fileGroup.fileId);
-        
+
     } catch(e) {
         console.error(e);
         alert("詳細表示エラー: " + e.message);
@@ -708,7 +698,7 @@
   // --- 4. 編集機能 ---
   function toggleEditMode() {
     if (!currentFileGroup) return;
-    
+
     document.getElementById('editBtn').style.display = 'none';
     document.getElementById('saveBtn').classList.remove('hidden');
     document.getElementById('cancelBtn').classList.remove('hidden');
@@ -732,28 +722,17 @@
       selectFile(currentFileGroup, null);
     }
   }
-  
+
   function hideEditControls() {
     document.getElementById('editBtn').style.display = 'inline-block';
     document.getElementById('saveBtn').classList.add('hidden');
     document.getElementById('cancelBtn').classList.add('hidden');
-    
+
     document.querySelectorAll('.form-input, .detail-input').forEach(input => {
       input.readOnly = true;
       input.classList.add('readonly');
       input.classList.remove('changed');
     });
-  }
-
-  function updateSubtotal(input) {
-    const tr = input.closest('tr');
-    const price = parseFloat(tr.querySelector('.price').value) || 0;
-    const qty = parseFloat(tr.querySelector('.qty').value) || 0;
-    const subtotalEl = tr.querySelector('.subtotal');
-    
-    const newTotal = price * qty;
-    subtotalEl.innerText = newTotal.toLocaleString();
-    input.classList.add('changed');
   }
 
   // --- 5. 保存機能 ---
@@ -765,7 +744,6 @@
     const dest = document.getElementById('viewDest').value;
     const maker = document.getElementById('viewMaker').value;
     const date = document.getElementById('viewDate').value;
-    const orderNum = document.getElementById('viewOrderNumber').value;
     const fileName = document.getElementById('viewFileName').value;
     const status = document.getElementById('viewStatus').value;
     const comment = document.getElementById('viewComment').value;
@@ -782,13 +760,12 @@
         dest: dest,
         maker: maker,
         date: date,
-        orderNum: orderNum,
+        orderNum: inputs[0].value,
         fileName: fileName,
         status: status,
         comment: comment,
-        p_code: inputs[0].value,
-        p_name: inputs[1].value,
-        price: inputs[2].value,
+        p_code: inputs[1].value,
+        p_name: inputs[2].value,
         qty: inputs[3].value,
         page_number: parseInt(tr.dataset.page, 10) || 1
       });
@@ -818,7 +795,7 @@
   function exportSelectedFiles() {
     const checked = document.querySelectorAll('.file-checkbox:checked');
     if (!checked.length) return alert('出力したい発注書にチェックを入れてください');
-    
+
     const targetFileIds = Array.from(checked).map(cb => cb.value).filter(val => val !== "");
     const targetKeys = rawData
       .filter(row => targetFileIds.includes(row.fileId))
@@ -935,6 +912,61 @@
     document.addEventListener('mouseup', function() {
       if (isResizing) {
         isResizing = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    });
+  })();
+
+  // 縦リサイザー機能（左右パネル幅変更）
+  (function initVerticalResizers() {
+    const sidebar = document.querySelector('.sidebar-list');
+    const previewPane = document.querySelector('.preview-pane');
+    const resizerLeft = document.getElementById('verticalResizerLeft');
+    const resizerRight = document.getElementById('verticalResizerRight');
+
+    let activeResizer = null;
+    let startX = 0;
+    let startWidth = 0;
+
+    resizerLeft.addEventListener('mousedown', function(e) {
+      activeResizer = 'left';
+      startX = e.clientX;
+      startWidth = sidebar.offsetWidth;
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+
+    resizerRight.addEventListener('mousedown', function(e) {
+      activeResizer = 'right';
+      startX = e.clientX;
+      startWidth = previewPane.offsetWidth;
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!activeResizer) return;
+      const deltaX = e.clientX - startX;
+
+      if (activeResizer === 'left') {
+        const newWidth = startWidth + deltaX;
+        if (newWidth >= 200 && newWidth <= 600) {
+          sidebar.style.width = newWidth + 'px';
+        }
+      } else if (activeResizer === 'right') {
+        const newWidth = startWidth - deltaX;
+        if (newWidth >= 200 && newWidth <= 800) {
+          previewPane.style.width = newWidth + 'px';
+        }
+      }
+    });
+
+    document.addEventListener('mouseup', function() {
+      if (activeResizer) {
+        activeResizer = null;
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
       }

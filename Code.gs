@@ -362,9 +362,7 @@ function updateOrderData(updates) {
     sheet.getRange(rowNum, 14).setValue(update.dest);
     sheet.getRange(rowNum, 8).setValue(update.p_code);
     sheet.getRange(rowNum, 9).setValue(update.p_name);
-    sheet.getRange(rowNum, 10).setValue(update.price);
     sheet.getRange(rowNum, 11).setValue(update.qty);
-    sheet.getRange(rowNum, 12).setFormula(`=J${rowNum}*K${rowNum}`);
 
     // page_number更新（R列 = 18列目）
     if (update.page_number !== undefined) {
@@ -848,4 +846,83 @@ function migrateToV3Schema() {
     console.error(`マイグレーションエラー: ${e.message}`);
     throw e;
   }
+}
+
+/**
+ * 完了レコード定期削除
+ * ステータスが「完了」の行をスプレッドシートから物理削除する
+ * トリガーまたはGASエディタから手動実行可能
+ */
+function purgeCompletedOrders() {
+  console.log('[PURGE] 完了レコード削除処理 開始');
+
+  try {
+    const ss = SpreadsheetApp.openById(PROPS.getProperty('SPREADSHEET_ID'));
+    const sheet = ss.getSheetByName(SHEET_NAME);
+    const lastRow = sheet.getLastRow();
+
+    if (lastRow <= 1) {
+      console.log('[PURGE] データなし - スキップ');
+      return { deletedCount: 0, message: 'データなし' };
+    }
+
+    // D列（4列目）= status を取得
+    const statuses = sheet.getRange(2, 4, lastRow - 1, 1).getValues();
+
+    // 削除対象の行番号を収集（1-indexed, ヘッダー行+1から）
+    const rowsToDelete = [];
+    for (let i = 0; i < statuses.length; i++) {
+      if (String(statuses[i][0]) === '完了') {
+        rowsToDelete.push(i + 2); // スプレッドシートの行番号
+      }
+    }
+
+    console.log(`[PURGE] 削除対象: ${rowsToDelete.length}件 / 全${lastRow - 1}件`);
+
+    if (rowsToDelete.length === 0) {
+      console.log('[PURGE] 完了レコードなし - スキップ');
+      return { deletedCount: 0, message: '完了レコードなし' };
+    }
+
+    // 下から削除してインデックスずれを防止
+    for (let i = rowsToDelete.length - 1; i >= 0; i--) {
+      sheet.deleteRow(rowsToDelete[i]);
+    }
+
+    console.log(`[PURGE] 完了 - ${rowsToDelete.length}行を削除`);
+    return {
+      deletedCount: rowsToDelete.length,
+      message: `${rowsToDelete.length}件の完了レコードを削除しました`
+    };
+
+  } catch (e) {
+    console.error(`[PURGE] エラー: ${e.message}`);
+    throw new Error(`完了レコード削除失敗: ${e.message}`);
+  }
+}
+
+/**
+ * 完了レコード定期削除トリガーを設定
+ * 毎日深夜2時に purgeCompletedOrders を自動実行する
+ * ※ 1回だけ実行すればトリガーが登録される
+ */
+function setupPurgeTrigger() {
+  // 既存の同名トリガーを削除（重複防止）
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'purgeCompletedOrders') {
+      ScriptApp.deleteTrigger(trigger);
+      console.log('[TRIGGER] 既存トリガーを削除');
+    }
+  });
+
+  // 毎日午前2時に実行するトリガーを作成
+  ScriptApp.newTrigger('purgeCompletedOrders')
+    .timeBased()
+    .everyDays(1)
+    .atHour(2)
+    .create();
+
+  console.log('[TRIGGER] purgeCompletedOrders を毎日午前2時に実行するトリガーを登録しました');
+  return 'トリガー登録完了: 毎日午前2時に完了レコードを自動削除';
 }

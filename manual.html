@@ -349,7 +349,7 @@
   <!-- Header -->
   <div class="manual-header">
     <h1>📖 AI-OCR 発注管理システム 取扱説明書</h1>
-    <span class="version-badge">V3.0</span>
+    <span class="version-badge">V3.2</span>
   </div>
 
   <!-- Main Content -->
@@ -459,7 +459,7 @@
           <li>拠点、店舗名、納品先、メーカー</li>
           <li>発注日、発注番号、ステータス</li>
           <li>ファイル名、備考</li>
-          <li>商品明細（品番、商品名、単価、数量、小計）</li>
+          <li>商品明細（発注No、品番、品名、数量）</li>
           <li>ページタブ（複数ページPDFの場合、ページ別に商品明細を切り替え表示）</li>
         </ul>
       </div>
@@ -537,12 +537,11 @@
           <p>以下の項目が編集できます：</p>
           <ul>
             <li>発注日</li>
-            <li>発注番号</li>
             <li>メーカー名</li>
             <li>ステータス</li>
             <li>ファイル名</li>
             <li>備考</li>
-            <li>商品情報（品番、商品名、単価、数量）</li>
+            <li>商品情報（発注No、品番、品名、数量）</li>
           </ul>
           <div class="alert alert-warning">
             <strong>⚠️ 注意</strong>
@@ -573,9 +572,9 @@
         <div class="step" data-step="3">
           <h4>自動完了</h4>
           <p>Excelファイルがダウンロードされます。出力した発注書は自動的に「完了」ステータスになり、一覧から非表示になります。</p>
-          <div class="alert alert-success">
-            <strong>✅ データは保持されます</strong>
-            非表示になってもデータは削除されません。ステータスを変更すれば再表示できます。
+          <div class="alert alert-info">
+            <strong>💡 完了データの自動削除について</strong>
+            完了ステータスになったデータは、毎日深夜に自動的にスプレッドシートから削除されます。必要なデータは必ずExcel出力してから完了にしてください。
           </div>
         </div>
       </div>
@@ -639,7 +638,7 @@
       <p><strong>A.</strong> 「編集」ボタンをクリックして、手動で修正できます。修正後は必ず「保存」してください。</p>
 
       <h3>Q3. 完了にした発注書を再表示したい</h3>
-      <p><strong>A.</strong> 完了ステータスのデータは自動的に非表示になりますが、データは削除されていません。Google Spreadsheetから直接ステータスを変更すれば再表示できます。</p>
+      <p><strong>A.</strong> 完了ステータスのデータは自動的に非表示になります。毎日深夜に自動削除されるため、それまでの間であればGoogle Spreadsheetから直接ステータスを変更すれば再表示できます。削除後の復元はできませんのでご注意ください。</p>
 
       <h3>Q4. PDFプレビューが表示されません</h3>
       <p><strong>A.</strong> 以下を確認してください：</p>
@@ -873,7 +872,7 @@
 
   <!-- Footer -->
   <div class="manual-footer">
-    <p><strong>AI-OCR 発注管理システム V3.0</strong></p>
+    <p><strong>AI-OCR 発注管理システム V3.2</strong></p>
     <p style="margin-top: 8px; font-size: 13px;">
       このマニュアルは、システムを使用する方向けの基本操作ガイドです。<br>
       技術的な設定については、システム管理者にお問い合わせください。
