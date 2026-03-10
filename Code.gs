@@ -111,7 +111,7 @@ function processSingleFile(file, branchName, targetBranchFolder, ssId, apiKey, p
         file_name: fileName,
         status: '未処理',
         order_date: extractedData.order_date || '',
-        order_number: extractedData.order_number || '',
+        order_number: extractedData.order_number || extractedData.order_no || '',
         maker_name: extractedData.maker_name || '',
         shop_name: extractedData.shop_name || '',
         delivery_destination: extractedData.delivery_destination || '',
@@ -146,7 +146,7 @@ function safeParseFloat(val) {
 }
 
 function callGeminiApi(file, apiKey, promptText) {
-  const MODEL_NAME = 'gemini-2.5-pro'; 
+  const MODEL_NAME = 'gemini-2.5-pro';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
   const blob = file.getBlob();
   const base64Data = Utilities.base64Encode(blob.getBytes());
@@ -161,8 +161,38 @@ function callGeminiApi(file, apiKey, promptText) {
     if (response.getResponseCode() !== 200) throw new Error(json.error.message);
     let text = json.candidates[0].content.parts[0].text;
     text = text.replace(/^```json\s*/, "").replace(/\s*```$/, "");
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    return normalizeGeminiResponse(parsed);
   } catch (e) { throw new Error("API解析失敗: " + e.message); }
+}
+
+/**
+ * Gemini APIレスポンスを正規化
+ * 配列ラップ、キー名の揺れなどに対応
+ */
+function normalizeGeminiResponse(data) {
+  // 配列で返された場合、最初の要素を使用
+  if (Array.isArray(data)) {
+    data = data[0] || {};
+  }
+
+  // itemsキーの揺れに対応
+  if (!data.items) {
+    data.items = data.product_list || data.products || data.item_list
+                 || data.order_items || data.details || data.明細 || [];
+  }
+
+  // items内の各商品フィールドを正規化
+  if (Array.isArray(data.items)) {
+    data.items = data.items.map(item => ({
+      product_code: item.product_code || item.code || item.item_code || item.品番 || '',
+      product_name: item.product_name || item.name || item.item_name || item.商品名 || '',
+      quantity: item.quantity || item.qty || item.数量 || 0,
+      unit_price: item.unit_price || item.price || item.単価 || 0
+    }));
+  }
+
+  return data;
 }
 
 function getPromptFromSheet(ssId) {
