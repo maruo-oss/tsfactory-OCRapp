@@ -403,6 +403,36 @@ function updateOrderData(updates) {
 }
 
 /**
+ * 明細行削除：指定されたuniqueKeyの行をスプレッドシートから物理削除
+ */
+function deleteOrderRows(keysToDelete) {
+  if (!keysToDelete || keysToDelete.length === 0) return '削除対象なし';
+
+  const ss = SpreadsheetApp.openById(PROPS.getProperty('SPREADSHEET_ID'));
+  const sheet = ss.getSheetByName(SHEET_NAME);
+
+  // uniqueKeyからスプレッドシートの行番号を抽出
+  const rowNumbers = keysToDelete.map(key => {
+    const idx = key.lastIndexOf('_');
+    if (idx === -1) return -1;
+    return parseInt(key.substring(idx + 1), 10);
+  }).filter(n => n > 1).sort((a, b) => b - a); // 降順ソート（下から削除）
+
+  let deletedCount = 0;
+  rowNumbers.forEach(rowNum => {
+    try {
+      sheet.deleteRow(rowNum);
+      deletedCount++;
+    } catch (e) {
+      console.warn(`行${rowNum}の削除失敗: ${e.message}`);
+    }
+  });
+
+  console.log(`[DELETE] ${deletedCount}行を削除`);
+  return `${deletedCount}行を削除しました`;
+}
+
+/**
  * アーカイブ機能：選択されたfileIdを「完了」ステータスに変更
  * データは物理削除せず、スプレッドシートに保持される
  */

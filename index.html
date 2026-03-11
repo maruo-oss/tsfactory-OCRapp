@@ -115,6 +115,12 @@
     .loading { text-align: center; padding: 20px; color: #666; font-style: italic; }
     .hidden { display: none !important; }
 
+    /* Delete button */
+    .btn-delete-row { background: #d93025; color: white; padding: 2px 8px; font-size: 12px; border-radius: 4px; min-width: 32px; }
+    .btn-delete-row:hover { background: #b71c1c; }
+    .delete-col.hidden { display: none; }
+    .detail-table tr.deleted-row { display: none; }
+
     /* Select and Textarea readonly styles */
     select.form-input.readonly {
       background: transparent;
@@ -243,6 +249,7 @@
             <table class="detail-table">
               <thead>
                 <tr>
+                  <th width="40px" class="delete-col hidden" style="text-align:center;"></th>
                   <th width="50px" style="text-align:center;">No.</th>
                   <th width="15%">発注No</th>
                   <th width="20%">品番</th>
@@ -251,7 +258,7 @@
                 </tr>
               </thead>
               <tbody id="detailTableBody">
-                <tr><td colspan="5" class="empty-state">左のリストから発注書を選択してください</td></tr>
+                <tr><td colspan="6" class="empty-state">左のリストから発注書を選択してください</td></tr>
               </tbody>
             </table>
           </div>
@@ -278,6 +285,7 @@
   let groupedFiles = [];
   let currentFileGroup = null;
   let activePageTab = 'all';
+  let deletedKeys = [];
 
   // --- 初期化 ---
   document.addEventListener('DOMContentLoaded', () => {
@@ -371,7 +379,7 @@
           tbody.innerHTML = '';
           const emptyRow = document.createElement('tr');
           const emptyCell = document.createElement('td');
-          emptyCell.setAttribute('colspan', '5');
+          emptyCell.setAttribute('colspan', '6');
           emptyCell.className = 'empty-state';
           emptyCell.textContent = '選択したファイルが見つかりません';
           emptyRow.appendChild(emptyCell);
@@ -560,7 +568,7 @@
         if (!fileGroup.items || fileGroup.items.length === 0) {
             const emptyRow = document.createElement('tr');
             const emptyCell = document.createElement('td');
-            emptyCell.setAttribute('colspan', '5');
+            emptyCell.setAttribute('colspan', '6');
             emptyCell.className = 'empty-state';
             emptyCell.textContent = '明細データがありません';
             emptyRow.appendChild(emptyCell);
@@ -572,6 +580,18 @@
               tr.dataset.page = item.page_number || 1;
 
               const qty = Number(item.qty) || 0;
+
+              // 削除ボタン列
+              const tdDel = document.createElement('td');
+              tdDel.className = 'delete-col hidden';
+              tdDel.style.textAlign = 'center';
+              const delBtn = document.createElement('button');
+              delBtn.className = 'btn-delete-row';
+              delBtn.textContent = '✕';
+              delBtn.title = 'この行を削除';
+              delBtn.onclick = function() { deleteDetailRow(tr); };
+              tdDel.appendChild(delBtn);
+              tr.appendChild(tdDel);
 
               // No.列
               const tdNo = document.createElement('td');
@@ -678,7 +698,7 @@
   }
 
   function applyPageFilter() {
-    const rows = document.querySelectorAll('#detailTableBody tr[data-page]');
+    const rows = document.querySelectorAll('#detailTableBody tr[data-page]:not(.deleted-row)');
     let visibleIndex = 0;
 
     rows.forEach(tr => {
@@ -687,10 +707,34 @@
       if (activePageTab === 'all' || rowPage === activePageTab) {
         tr.style.display = '';
         visibleIndex++;
-        const noCell = tr.querySelector('td:first-child');
+        const noCell = tr.querySelectorAll('td')[1]; // 0=delete col, 1=No.
         if (noCell) noCell.textContent = visibleIndex;
       } else {
         tr.style.display = 'none';
+      }
+    });
+  }
+
+  // --- 行削除機能 ---
+  function deleteDetailRow(tr) {
+    if (!tr.dataset.key) return;
+    if (!confirm('この明細行を削除しますか？\n（保存後にスプレッドシートからも削除されます）')) return;
+    deletedKeys.push(tr.dataset.key);
+    tr.classList.add('deleted-row');
+    renumberVisibleRows();
+  }
+
+  function renumberVisibleRows() {
+    const rows = document.querySelectorAll('#detailTableBody tr[data-page]:not(.deleted-row)');
+    let visibleIndex = 0;
+    rows.forEach(tr => {
+      const rowPage = parseInt(tr.dataset.page, 10);
+      if (activePageTab === 'all' || rowPage === activePageTab) {
+        if (tr.style.display !== 'none') {
+          visibleIndex++;
+          const noCell = tr.querySelectorAll('td')[1]; // 0=delete col, 1=No.
+          if (noCell) noCell.textContent = visibleIndex;
+        }
       }
     });
   }
@@ -699,9 +743,14 @@
   function toggleEditMode() {
     if (!currentFileGroup) return;
 
+    deletedKeys = [];
+
     document.getElementById('editBtn').style.display = 'none';
     document.getElementById('saveBtn').classList.remove('hidden');
     document.getElementById('cancelBtn').classList.remove('hidden');
+
+    // 削除列を表示
+    document.querySelectorAll('.delete-col').forEach(el => el.classList.remove('hidden'));
 
     document.querySelectorAll('.form-input, .detail-input').forEach(input => {
       if (input.id === 'viewBranch') return;
@@ -728,6 +777,9 @@
     document.getElementById('saveBtn').classList.add('hidden');
     document.getElementById('cancelBtn').classList.add('hidden');
 
+    // 削除列を非表示
+    document.querySelectorAll('.delete-col').forEach(el => el.classList.add('hidden'));
+
     document.querySelectorAll('.form-input, .detail-input').forEach(input => {
       input.readOnly = true;
       input.classList.add('readonly');
@@ -748,11 +800,11 @@
     const status = document.getElementById('viewStatus').value;
     const comment = document.getElementById('viewComment').value;
 
-    const rows = document.querySelectorAll('#detailTableBody tr');
+    const rows = document.querySelectorAll('#detailTableBody tr:not(.deleted-row)');
     rows.forEach(tr => {
       if (!tr.dataset.key) return;
       const key = tr.dataset.key;
-      const inputs = tr.querySelectorAll('input');
+      const inputs = tr.querySelectorAll('.detail-input');
 
       updates.push({
         uniqueKey: key,
@@ -774,17 +826,35 @@
     const btn = document.getElementById('saveBtn');
     btn.disabled = true; btn.innerText = '保存中...';
 
-    google.script.run
-      .withSuccessHandler(msg => {
-        alert(msg);
-        btn.disabled = false; btn.innerText = '💾 保存';
-        loadData();
-      })
-      .withFailureHandler(e => {
-        alert('保存エラー: ' + e.message);
-        btn.disabled = false; btn.innerText = '💾 保存';
-      })
-      .updateOrderData(updates);
+    // 削除対象がある場合、先に削除してから更新
+    const keysToDelete = deletedKeys.slice();
+
+    const doSave = () => {
+      google.script.run
+        .withSuccessHandler(msg => {
+          alert(msg);
+          btn.disabled = false; btn.innerText = '💾 保存';
+          deletedKeys = [];
+          loadData();
+        })
+        .withFailureHandler(e => {
+          alert('保存エラー: ' + e.message);
+          btn.disabled = false; btn.innerText = '💾 保存';
+        })
+        .updateOrderData(updates);
+    };
+
+    if (keysToDelete.length > 0) {
+      google.script.run
+        .withSuccessHandler(() => { doSave(); })
+        .withFailureHandler(e => {
+          alert('削除エラー: ' + e.message);
+          btn.disabled = false; btn.innerText = '💾 保存';
+        })
+        .deleteOrderRows(keysToDelete);
+    } else {
+      doSave();
+    }
   }
 
   // --- 6. その他ユーティリティ ---
