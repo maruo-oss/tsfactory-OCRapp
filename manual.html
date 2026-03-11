@@ -349,7 +349,7 @@
   <!-- Header -->
   <div class="manual-header">
     <h1>📖 AI-OCR 発注管理システム 取扱説明書</h1>
-    <span class="version-badge">V3.2</span>
+    <span class="version-badge">V3.3</span>
   </div>
 
   <!-- Main Content -->
@@ -426,6 +426,12 @@
           <span class="feature-icon">📥</span>
           <div class="feature-title">Excel出力</div>
           <div class="feature-desc">選択した発注書をまとめてExcelファイルとして出力できます。</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">🗑️</span>
+          <div class="feature-title">明細行削除</div>
+          <div class="feature-desc">編集モードで不要な商品明細行を個別に削除できます。保存前ならキャンセルで元に戻せます。</div>
         </div>
       </div>
     </section>
@@ -543,9 +549,14 @@
             <li>備考</li>
             <li>商品情報（発注No、品番、品名、数量）</li>
           </ul>
+          <p style="margin-top: 12px;"><strong>明細行の削除：</strong>編集モード中は、各商品明細行の左端に赤い「✕」ボタンが表示されます。不要な行の「✕」をクリックすると確認ダイアログが表示され、「OK」を押すとその行が非表示になります。</p>
+          <div class="alert alert-info">
+            <strong>💡 削除の確定タイミング</strong>
+            削除は「保存」ボタンを押すまで確定しません。「キャンセル」ボタンを押せば、削除を取り消して元の状態に戻せます。
+          </div>
           <div class="alert alert-warning">
             <strong>⚠️ 注意</strong>
-            「拠点」「店舗名」「納品先」は編集できません。
+            「拠点」「店舗名」「納品先」は編集できません。また、明細行の削除は保存後に取り消しできませんのでご注意ください。
           </div>
         </div>
 
@@ -655,10 +666,13 @@
       <h3>Q6. データを間違えて保存してしまいました</h3>
       <p><strong>A.</strong> もう一度「編集」ボタンをクリックして、正しいデータに修正して保存し直してください。</p>
 
-      <h3>Q7. 処理に時間がかかりすぎます</h3>
+      <h3>Q7. 明細行を間違えて削除してしまいました</h3>
+      <p><strong>A.</strong> まだ「保存」を押していなければ、「キャンセル」ボタンで元に戻せます。保存後に削除された行はスプレッドシートから物理削除されるため、復元できません。削除前に内容をよく確認してください。</p>
+
+      <h3>Q8. 処理に時間がかかりすぎます</h3>
       <p><strong>A.</strong> PDFのページ数が多い場合や、複数のPDFを同時処理する場合は時間がかかることがあります。処理中は画面を閉じずにお待ちください。</p>
 
-      <h3>Q8. システムが動きません</h3>
+      <h3>Q9. システムが動きません</h3>
       <p><strong>A.</strong> 以下をお試しください：</p>
       <ul>
         <li>ブラウザをリフレッシュ（F5キー）</li>
@@ -872,7 +886,7 @@
 
   <!-- Footer -->
   <div class="manual-footer">
-    <p><strong>AI-OCR 発注管理システム V3.2</strong></p>
+    <p><strong>AI-OCR 発注管理システム V3.3</strong></p>
     <p style="margin-top: 8px; font-size: 13px;">
       このマニュアルは、システムを使用する方向けの基本操作ガイドです。<br>
       技術的な設定については、システム管理者にお問い合わせください。
