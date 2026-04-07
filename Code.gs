@@ -105,6 +105,25 @@ function processSingleFile(file, branchName, targetBranchFolder, ssId, apiKey, p
                     ? extractedData.items
                     : (page === 1 ? [{ product_code: "", product_name: "(明細なし)", quantity: 0, unit_price: 0 }] : []);
 
+      // ～（同上）carry-forward: product_code と quantity
+      let lastProductCode = '';
+      let lastQuantity = 0;
+      for (let i = 0; i < items.length; i++) {
+        const code = String(items[i].product_code || '').trim();
+        if (code === '～' || code === '〜' || code === '~') {
+          items[i].product_code = lastProductCode;
+        } else {
+          lastProductCode = items[i].product_code || '';
+        }
+
+        const qty = String(items[i].quantity || '').trim();
+        if (qty === '～' || qty === '〜' || qty === '~') {
+          items[i].quantity = lastQuantity;
+        } else {
+          lastQuantity = items[i].quantity;
+        }
+      }
+
       const records = items.map(item => ({
         file_id: file.getId(),
         branch_name: branchName,
@@ -114,7 +133,7 @@ function processSingleFile(file, branchName, targetBranchFolder, ssId, apiKey, p
         order_number: extractedData.order_number || extractedData.order_no || '',
         maker_name: extractedData.maker_name || '',
         shop_name: extractedData.shop_name || '',
-        delivery_destination: extractedData.delivery_destination || '',
+        delivery_destination: extractedData.delivery_destination || extractedData.shop_name || '',
         product_code: item.product_code || '',
         product_name: item.product_name || '',
         quantity: safeParseFloat(item.quantity),
@@ -335,7 +354,7 @@ function exportSelectedDataToExcel(selectedKeys, autoArchive = true) {
   const tempSheet = tempSS.getSheets()[0];
   
   // ヘッダー更新（発注No追加）
-  const headers = ['拠点', '発注日', '発注No', 'メーカー', '店舗名', '品番', '商品名', '単価', '数量', '小計', 'ステータス', '納品先'];
+  const headers = ['拠点', '発注日', '発注No', 'メーカー', '発注会社名', '品番', '商品名', '単価', '数量', '小計', 'ステータス', '納品先'];
   tempSheet.appendRow(headers);
 
   const rows = exportTargets.map(r => [
@@ -615,7 +634,7 @@ function debugOcrWithDetailedLog() {
       console.log(`  発注日: ${extractedData.order_date || '(なし)'}`);
       console.log(`  発注番号: ${extractedData.order_number || '(なし)'}`);
       console.log(`  メーカー名: ${extractedData.maker_name || '(なし)'}`);
-      console.log(`  店舗名: ${extractedData.shop_name || '(なし)'}`);
+      console.log(`  発注会社名: ${extractedData.shop_name || '(なし)'}`);
       console.log(`  納品先: ${extractedData.delivery_destination || '(なし)'}\n`);
 
       console.log(`【商品明細 - ページ${page}】`);
