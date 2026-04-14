@@ -57,74 +57,41 @@ function processOrders() {
   return totalProcessedCount;
 }
 
-// --- PDFの総ページ数を取得（Gemini Flash使用） ---
-function getPageCount(file, apiKey) {
-  const MODEL_NAME = 'gemini-2.5-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
-  const blob = file.getBlob();
-  const base64Data = Utilities.base64Encode(blob.getBytes());
-  const payload = {
-    contents: [{ parts: [
-      { text: 'このPDFの総ページ数を数字のみで回答してください。例: 3' },
-      { inline_data: { mime_type: blob.getContentType(), data: base64Data } }
-    ] }]
-  };
-  const options = { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true };
-  try {
-    const response = UrlFetchApp.fetch(url, options);
-    const json = JSON.parse(response.getContentText());
-    if (response.getResponseCode() !== 200) throw new Error(json.error.message);
-    const text = json.candidates[0].content.parts[0].text.trim();
-    const pageCount = parseInt(text, 10);
-    console.log(`[ページ数取得] ${file.getName()}: ${pageCount}ページ`);
-    return isNaN(pageCount) || pageCount < 1 ? 1 : pageCount;
-  } catch (e) {
-    console.warn(`[ページ数取得失敗] ${file.getName()}: ${e.message} → 1ページとして処理`);
-    return 1;
-  }
-}
-
-// --- 個別ファイル処理（ページごとにAPI呼び出し） ---
+// --- 個別ファイル処理（全ページ一括でAPI呼び出し） ---
 function processSingleFile(file, branchName, targetBranchFolder, ssId, apiKey, promptText) {
   const fileName = file.getName();
   try {
-    const totalPages = getPageCount(file, apiKey);
-    const allRecords = [];
-    let globalItemOrder = 1;
+    console.log(`[OCR] ${fileName} - 全ページ一括処理中...`);
 
-    for (let page = 1; page <= totalPages; page++) {
-      console.log(`[OCR] ${fileName} - ページ ${page}/${totalPages} 処理中...`);
+    // 全ページ一括で抽出（各itemにpage_numberを含める指示をプロンプトに追加）
+    const fullPrompt = `【重要】このPDFの全ページを読み取り、各商品明細にそのページ番号（page_number）を必ず含めてください。\n\n${promptText}`;
+    const extractedData = callGeminiApi(file, apiKey, fullPrompt);
+    const items = (extractedData.items && extractedData.items.length > 0)
+                  ? extractedData.items
+                  : [{ product_code: "", product_name: "(明細なし)", quantity: 0, unit_price: 0, page_number: 1 }];
 
-      // ページ指定のプロンプトを生成
-      const pagePrompt = totalPages === 1
-        ? promptText
-        : `【重要】このPDFは${totalPages}ページありますが、${page}ページ目の内容のみを対象に読み取ってください。他のページの内容は絶対に含めないでください。\n\n${promptText}`;
-
-      const extractedData = callGeminiApi(file, apiKey, pagePrompt);
-      const items = (extractedData.items && extractedData.items.length > 0)
-                    ? extractedData.items
-                    : (page === 1 ? [{ product_code: "", product_name: "(明細なし)", quantity: 0, unit_price: 0 }] : []);
-
-      // ～（同上）carry-forward: product_code と quantity
-      let lastProductCode = '';
-      let lastQuantity = 0;
-      for (let i = 0; i < items.length; i++) {
-        const code = String(items[i].product_code || '').trim();
-        if (code === '～' || code === '〜' || code === '~') {
-          items[i].product_code = lastProductCode;
-        } else {
-          lastProductCode = items[i].product_code || '';
-        }
-
-        const qty = String(items[i].quantity || '').trim();
-        if (qty === '～' || qty === '〜' || qty === '~') {
-          items[i].quantity = lastQuantity;
-        } else {
-          lastQuantity = items[i].quantity;
-        }
+    // ～（同上）carry-forward: product_code と quantity
+    let lastProductCode = '';
+    let lastQuantity = 0;
+    for (let i = 0; i < items.length; i++) {
+      const code = String(items[i].product_code || '').trim();
+      if (code === '～' || code === '〜' || code === '~') {
+        items[i].product_code = lastProductCode;
+      } else {
+        lastProductCode = items[i].product_code || '';
       }
 
-      const records = items.map(item => ({
+      const qty = String(items[i].quantity || '').trim();
+      if (qty === '～' || qty === '〜' || qty === '~') {
+        items[i].quantity = lastQuantity;
+      } else {
+        lastQuantity = items[i].quantity;
+      }
+    }
+
+    let globalItemOrder = 1;
+    const allRecords = items.map(item => {
+      const record = {
         file_id: file.getId(),
         branch_name: branchName,
         file_name: fileName,
@@ -140,18 +107,17 @@ function processSingleFile(file, branchName, targetBranchFolder, ssId, apiKey, p
         unit_price: safeParseFloat(item.unit_price),
         processed_at: new Date(),
         item_order: globalItemOrder++,
-        page_number: page  // プログラム的にページ番号を付与
-      }));
-
-      records.forEach(r => r.line_total = r.quantity * r.unit_price);
-      allRecords.push(...records);
-    }
+        page_number: parseInt(item.page_number, 10) || 1
+      };
+      record.line_total = record.quantity * record.unit_price;
+      return record;
+    });
 
     if (allRecords.length > 0) {
       saveToSpreadsheet(ssId, allRecords);
     }
     file.moveTo(targetBranchFolder);
-    console.log(`[完了] ${fileName}: ${allRecords.length}件（${totalPages}ページ）`);
+    console.log(`[完了] ${fileName}: ${allRecords.length}件`);
   } catch (e) {
     console.error(`エラー ${fileName}: ${e.message}`);
     file.setName(`【ERROR】${fileName}`);
@@ -207,7 +173,8 @@ function normalizeGeminiResponse(data) {
       product_code: item.product_code || item.code || item.item_code || item.品番 || '',
       product_name: item.product_name || item.name || item.item_name || item.商品名 || '',
       quantity: item.quantity || item.qty || item.数量 || 0,
-      unit_price: item.unit_price || item.price || item.単価 || 0
+      unit_price: item.unit_price || item.price || item.単価 || 0,
+      page_number: item.page_number || item.ページ番号 || item.page || 1
     }));
   }
 
